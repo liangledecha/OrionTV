@@ -89,7 +89,7 @@ export class API {
     this.baseURL = url;
   }
 
-  private async _fetch(url: string, options: RequestInit = {}): Promise<Response> {
+  private async _fetch(url: string, options: RequestInit & { skipAuth?: boolean } = {}): Promise<Response> {
     if (!this.baseURL) {
       throw new Error("API_URL_NOT_SET");
     }
@@ -97,10 +97,10 @@ export class API {
     // 从 AsyncStorage 获取存储的认证 cookie
     const authToken = await AsyncStorage.getItem('authCookies');
     
-    // 添加认证头
+    // 添加认证头（skipAuth 时跳过，避免过期 cookie 导致公开端点 401）
     const headers = {
       ...options.headers,
-      ...(authToken && { 'Cookie': authToken }),
+      ...(authToken && !options.skipAuth && { 'Cookie': authToken }),
     };
 
     const response = await fetch(`${this.baseURL}${url}`, {
@@ -180,7 +180,8 @@ export class API {
   }
 
   async getServerConfig(): Promise<ServerConfig> {
-    const response = await this._fetch("/api/server-config");
+    // 服务器配置端点应为公开接口，跳过认证 cookie 防止过期 cookie 导致 401
+    const response = await this._fetch("/api/server-config", { skipAuth: true });
     return response.json();
   }
 
