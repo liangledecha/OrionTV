@@ -66,6 +66,7 @@
   "devDependencies": {
     "@babel/core": "^7.20.0",
     "@react-native-tvos/config-tv": "^0.0.10",
+    "@testing-library/react-native": "^13.3.3",
     "@types/jest": "^29.5.12",
     "@types/react": "~18.2.45",
     "@types/react-test-renderer": "^18.0.7",

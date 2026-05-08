@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import CookieManager from "@react-native-cookies/cookies";
 
 // region: --- Interface Definitions ---
 export interface DoubanItem {
@@ -93,7 +94,19 @@ export class API {
       throw new Error("API_URL_NOT_SET");
     }
 
-    const response = await fetch(`${this.baseURL}${url}`, options);
+    // 从 AsyncStorage 获取存储的认证 cookie
+    const authToken = await AsyncStorage.getItem('authCookies');
+    
+    // 添加认证头
+    const headers = {
+      ...options.headers,
+      ...(authToken && { 'Cookie': authToken }),
+    };
+
+    const response = await fetch(`${this.baseURL}${url}`, {
+      ...options,
+      headers,
+    });
 
     if (response.status === 401) {
       throw new Error("UNAUTHORIZED");
@@ -117,16 +130,52 @@ export class API {
     const cookies = response.headers.get("Set-Cookie");
     if (cookies) {
       await AsyncStorage.setItem("authCookies", cookies);
+      try {
+        await CookieManager.setFromResponse(this.baseURL, cookies);
+      } catch {
+        // 忽略原生 cookie 管理器错误
+      }
+    } else {
+      // RN fetch 通常读不到 Set-Cookie，尝试从原生 cookie 管理器读取
+      try {
+        const nativeCookies = await CookieManager.get(this.baseURL);
+        const cookieStr = Object.values(nativeCookies)
+          .map((c) => `${c.name}=${c.value}`)
+          .join("; ");
+        if (cookieStr) {
+          await AsyncStorage.setItem("authCookies", cookieStr);
+        }
+      } catch {
+        // 忽略
+      }
     }
 
     return response.json();
+  }
+
+  async validateSession(): Promise<boolean> {
+    try {
+      await this.getFavorites();
+      return true;
+    } catch (error) {
+      // 只有 UNAUTHORIZED 才认为是 session 失效，其他错误应抛出让调用方处理
+      if (error instanceof Error && error.message === "UNAUTHORIZED") {
+        return false;
+      }
+      throw error;
+    }
   }
 
   async logout(): Promise<{ ok: boolean }> {
     const response = await this._fetch("/api/logout", {
       method: "POST",
     });
-    await AsyncStorage.setItem("authCookies", '');
+    await AsyncStorage.setItem("authCookies", "");
+    try {
+      await CookieManager.clearAll();
+    } catch {
+      // 忽略
+    }
     return response.json();
   }
 

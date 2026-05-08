@@ -85,7 +85,7 @@ interface HomeState {
   hasMore: boolean;
   error: string | null;
   fetchInitialData: () => Promise<void>;
-  loadMoreData: () => Promise<void>;
+  loadMoreData: (allowRetry?: boolean) => Promise<void>;
   selectCategory: (category: Category) => void;
   refreshPlayRecords: () => Promise<void>;
   clearError: () => void;
@@ -135,7 +135,7 @@ const useHomeStore = create<HomeState>((set, get) => ({
     await get().loadMoreData();
   },
 
-  loadMoreData: async () => {
+  loadMoreData: async (allowRetry = true) => {
     const { selectedCategory, pageStart, loadingMore, hasMore } = get();
     if (loadingMore || !hasMore) return;
 
@@ -253,6 +253,20 @@ const useHomeStore = create<HomeState>((set, get) => ({
       if (err.message === "API_URL_NOT_SET") {
         errorMessage = "请点击右上角设置按钮，配置您的服务器地址";
       } else if (err.message === "UNAUTHORIZED") {
+        if (allowRetry) {
+          // 尝试自动恢复认证
+          const { apiBaseUrl } = useSettingsStore.getState();
+          await useAuthStore.getState().checkLoginStatus(apiBaseUrl);
+          const { isLoggedIn } = useAuthStore.getState();
+
+          if (isLoggedIn) {
+            // 自动恢复成功，重试一次数据加载
+            set({ error: null });
+            await get().loadMoreData(false);
+            return;
+          }
+        }
+
         errorMessage = "认证失败，请重新登录";
         useAuthStore.setState({ isLoggedIn: false, isLoginModalVisible: true });
       } else if (err.message.includes("Network")) {

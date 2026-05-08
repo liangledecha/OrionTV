@@ -86,24 +86,23 @@ const LoginModal = () => {
     }
     setIsLoading(true);
     try {
-      await api.login(isLocalStorage ? undefined : username, password);
+      // 1. 先保存凭据，确保后续自动恢复能读到
+      await LoginCredentialsManager.save({ username, password });
+
+      const loginResult = await api.login(isLocalStorage ? undefined : username, password);
+      if (!loginResult.ok) {
+        // 服务器明确返回认证失败（账号密码错误）
+        Toast.show({ type: "error", text1: "登录失败", text2: "账号或密码错误" });
+        return;
+      }
+
+      // 登录成功，刷新登录状态和数据
       await checkLoginStatus(apiBaseUrl);
       await refreshPlayRecords();
 
-      // Save credentials on successful login
-      await LoginCredentialsManager.save({ username, password });
-
       Toast.show({ type: "success", text1: "登录成功" });
-      // hideLoginModal();
 
-      // // Show disclaimer alert after successful login
-      // Alert.alert(
-      //   "免责声明",
-      //   "本应用仅提供影视信息搜索服务，所有内容均来自第三方网站。本站不存储任何视频资源，不对任何内容的准确性、合法性、完整性负责。",
-      //   [{ text: "确定" }]
-      // );
-
-            // 在登录成功后清理状态，再显示 Alert
+      // 在登录成功后清理状态，再显示 Alert
       const hideAndAlert = () => {
         hideLoginModal();
         setIsModalReady(false);
@@ -122,11 +121,32 @@ const LoginModal = () => {
       InteractionManager.runAfterInteractions(hideAndAlert);
 
     } catch (error) {
-      Toast.show({
-        type: "error",
-        text1: "登录失败",
-        text2: error instanceof Error ? error.message : "用户名或密码错误",
-      });
+      let errorText1 = "登录失败";
+      let errorText2 = "请稍后重试";
+
+      if (error instanceof Error) {
+        if (error.message === "UNAUTHORIZED" || error.message === "API_URL_NOT_SET") {
+          errorText1 = "登录失败";
+          errorText2 = "账号或密码错误";
+        } else if (error.message.toLowerCase().includes("network")) {
+          errorText1 = "网络连接失败";
+          errorText2 = "请检查网络连接后重试";
+        } else if (error.message.includes("HTTP error! status:")) {
+          const match = error.message.match(/HTTP error! status: (\d{3})/);
+          const status = match ? match[1] : "";
+          if (status.startsWith("5")) {
+            errorText1 = "服务器错误";
+            errorText2 = "服务器暂时不可用，请稍后重试";
+          } else {
+            errorText1 = "登录失败";
+            errorText2 = `服务器返回错误 (${status})`;
+          }
+        } else {
+          errorText2 = error.message;
+        }
+      }
+
+      Toast.show({ type: "error", text1: errorText1, text2: errorText2 });
     } finally {
       setIsLoading(false);
     }
