@@ -68,6 +68,8 @@ const useAuthStore = create<AuthState>((set) => ({
       if (!settingsState.isLoadingServerConfig) {
         Toast.show({ type: "error", text1: "请检查网络或者服务器地址是否可用" });
       }
+      // 即使服务器配置获取失败，也显示登录弹窗，让用户知道需要登录
+      set({ isLoggedIn: false, isLoginModalVisible: true });
       return;
     }
 
