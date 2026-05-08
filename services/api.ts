@@ -106,6 +106,7 @@ export class API {
     const response = await fetch(`${this.baseURL}${url}`, {
       ...options,
       headers,
+      credentials: options.skipAuth ? 'omit' : 'include',
     });
 
     if (response.status === 401) {

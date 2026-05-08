@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { api } from '@/services/api';
 
@@ -9,6 +9,10 @@ export interface ApiConfigStatus {
   error: string | null;
   needsConfiguration: boolean;
 }
+
+// 全局缓存，避免不同组件实例重复验证同一地址
+let globalValidatedUrl: string | null = null;
+let globalValidationResult: { isValid: boolean; error: string | null } | null = null;
 
 export const useApiConfig = () => {
   const { apiBaseUrl, serverConfig, isLoadingServerConfig } = useSettingsStore();
@@ -21,6 +25,7 @@ export const useApiConfig = () => {
     isValid: null,
     error: null,
   });
+  const hasValidatedRef = useRef(false);
 
   const isConfigured = Boolean(apiBaseUrl && apiBaseUrl.trim());
   const needsConfiguration = !isConfigured;
@@ -33,6 +38,18 @@ export const useApiConfig = () => {
         isValid: false,
         error: null,
       });
+      hasValidatedRef.current = false;
+      return;
+    }
+
+    // 如果全局已验证过同一地址，直接复用结果
+    if (globalValidatedUrl === apiBaseUrl && globalValidationResult) {
+      setValidationState({
+        isValidating: false,
+        isValid: globalValidationResult.isValid,
+        error: globalValidationResult.error,
+      });
+      hasValidatedRef.current = true;
       return;
     }
 
@@ -41,6 +58,9 @@ export const useApiConfig = () => {
 
       try {
         await api.getServerConfig();
+        const result = { isValid: true as boolean, error: null as string | null };
+        globalValidatedUrl = apiBaseUrl;
+        globalValidationResult = result;
         setValidationState({
           isValidating: false,
           isValid: true,
@@ -71,6 +91,9 @@ export const useApiConfig = () => {
           }
         }
 
+        const result = { isValid: false as boolean, error: errorMessage };
+        globalValidatedUrl = apiBaseUrl;
+        globalValidationResult = result;
         setValidationState({
           isValidating: false,
           isValid: false,

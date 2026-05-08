@@ -37,9 +37,9 @@ const MobileTabContainer: React.FC<MobileTabContainerProps> = ({ children }) => 
   
   const handleTabPress = (route: string) => {
     if (route === '/') {
-      router.push('/');
+      router.navigate('/');
     } else {
-      router.push(route as any);
+      router.navigate(route as any);
     }
   };
 

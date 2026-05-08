@@ -268,7 +268,7 @@ const useHomeStore = create<HomeState>((set, get) => ({
         }
 
         errorMessage = "认证失败，请重新登录";
-        useAuthStore.setState({ isLoggedIn: false, isLoginModalVisible: true });
+        useAuthStore.setState({ isLoggedIn: false });
       } else if (err.message.includes("Network")) {
         errorMessage = "网络连接失败，请检查网络连接";
       } else if (err.message.includes("timeout")) {
