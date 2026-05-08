@@ -141,8 +141,13 @@ describe("App Startup Authentication Integration", () => {
     // Verify error toast was shown
     expect(mockedToast.show).toHaveBeenCalledWith({
       type: "error",
+<<<<<<< HEAD
       text1: "服务器连接失败",
       text2: "后端通信网络错误",
+=======
+      text1: "Connection Error",
+      text2: "Unable to connect to server. Please check your network and API settings.",
+>>>>>>> 0094e2d5a080c20995b33106ae727e8818cbda64
     });
   });
 });

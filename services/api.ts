@@ -158,11 +158,16 @@ export class API {
       await this.getFavorites();
       return true;
     } catch (error) {
+<<<<<<< HEAD
       // 只有 UNAUTHORIZED 才认为是 session 失效，其他错误应抛出让调用方处理
       if (error instanceof Error && error.message === "UNAUTHORIZED") {
         return false;
       }
       throw error;
+=======
+      // 非 UNAUTHORIZED 错误也返回 false，让流程继续尝试凭据登录
+      return false;
+>>>>>>> 0094e2d5a080c20995b33106ae727e8818cbda64
     }
   }
 
@@ -171,11 +176,14 @@ export class API {
       method: "POST",
     });
     await AsyncStorage.setItem("authCookies", "");
+<<<<<<< HEAD
     try {
       await CookieManager.clearAll();
     } catch {
       // 忽略
     }
+=======
+>>>>>>> 0094e2d5a080c20995b33106ae727e8818cbda64
     return response.json();
   }
 

@@ -29,10 +29,13 @@ const parseHttpStatus = (error: unknown): number | null => {
   return null;
 };
 
+<<<<<<< HEAD
 type CredentialLoginResult =
   | { success: true }
   | { success: false; reason: 'no_credentials' | 'unauthorized' | 'network' | 'server' | 'unknown' };
 
+=======
+>>>>>>> 0094e2d5a080c20995b33106ae727e8818cbda64
 const useAuthStore = create<AuthState>((set) => ({
   isLoggedIn: false,
   isLoginModalVisible: false,
@@ -71,30 +74,59 @@ const useAuthStore = create<AuthState>((set) => ({
       return;
     }
 
+<<<<<<< HEAD
     const tryCredentialLogin = async (): Promise<CredentialLoginResult> => {
+=======
+    const tryCredentialLogin = async (): Promise<boolean> => {
+>>>>>>> 0094e2d5a080c20995b33106ae727e8818cbda64
       const savedCredentials = await LoginCredentialsManager.get();
       const isLocalStorage = serverConfig?.StorageType === "localstorage";
 
       if (!savedCredentials?.password && !isLocalStorage) {
+<<<<<<< HEAD
         return { success: false, reason: 'no_credentials' };
       }
 
       if (isLocalStorage && !savedCredentials?.password) {
         return { success: false, reason: 'no_credentials' };
+=======
+        return false;
+      }
+
+      if (isLocalStorage && !savedCredentials?.password) {
+        return false;
+>>>>>>> 0094e2d5a080c20995b33106ae727e8818cbda64
       }
 
       const username = isLocalStorage ? undefined : savedCredentials?.username;
       const password = savedCredentials?.password;
+<<<<<<< HEAD
+=======
+      let lastError: unknown;
+>>>>>>> 0094e2d5a080c20995b33106ae727e8818cbda64
 
       for (let attempt = 1; attempt <= 3; attempt += 1) {
         try {
           const loginResult = await api.login(username, password);
           if (loginResult.ok) {
+<<<<<<< HEAD
             // 登录成功，刷新保存的凭据（更新保存时间等）
             if (savedCredentials) {
               await LoginCredentialsManager.save(savedCredentials);
             }
             return { success: true };
+=======
+            if (savedCredentials) {
+              await LoginCredentialsManager.save(savedCredentials);
+            }
+            return true;
+          }
+          lastError = new Error("LOGIN_FAILED");
+        } catch (error) {
+          lastError = error;
+          if (attempt < 3) {
+            await delay(2000);
+>>>>>>> 0094e2d5a080c20995b33106ae727e8818cbda64
           }
           // 服务器明确返回 ok: false，说明账号密码错误，不需要重试
           return { success: false, reason: 'unauthorized' };
@@ -139,11 +171,31 @@ const useAuthStore = create<AuthState>((set) => ({
         }
       }
 
+<<<<<<< HEAD
       return { success: false, reason: 'unknown' };
     };
 
     try {
       // 阶段 1：优先使用 cookie 验证 session
+=======
+      if (lastError instanceof Error && lastError.message === "UNAUTHORIZED") {
+        return false;
+      }
+
+      const statusCode = parseHttpStatus(lastError);
+      if (statusCode) {
+        throw new Error(`后端通信${statusCode}错误`);
+      }
+
+      if (lastError instanceof Error && lastError.message.toLowerCase().includes("network")) {
+        throw new Error("后端通信网络错误");
+      }
+
+      throw lastError;
+    };
+
+    try {
+>>>>>>> 0094e2d5a080c20995b33106ae727e8818cbda64
       const authToken = await AsyncStorage.getItem('authCookies');
       if (authToken) {
         let cookieValid = false;
@@ -153,7 +205,10 @@ const useAuthStore = create<AuthState>((set) => ({
           if (error instanceof Error && error.message === "UNAUTHORIZED") {
             cookieValid = false;
           } else {
+<<<<<<< HEAD
             // 网络错误或服务器错误，不应继续凭据登录（后端可能不可用）
+=======
+>>>>>>> 0094e2d5a080c20995b33106ae727e8818cbda64
             throw error;
           }
         }
@@ -163,6 +218,7 @@ const useAuthStore = create<AuthState>((set) => ({
           return;
         }
 
+<<<<<<< HEAD
         // Cookie 已失效，清空
         await AsyncStorage.setItem('authCookies', '');
       }
@@ -170,10 +226,18 @@ const useAuthStore = create<AuthState>((set) => ({
       // 阶段 2：使用保存的账号密码自动登录
       const credentialResult = await tryCredentialLogin();
       if (credentialResult.success) {
+=======
+        await AsyncStorage.setItem('authCookies', '');
+      }
+
+      const loginSuccess = await tryCredentialLogin();
+      if (loginSuccess) {
+>>>>>>> 0094e2d5a080c20995b33106ae727e8818cbda64
         set({ isLoggedIn: true, isLoginModalVisible: false });
         return;
       }
 
+<<<<<<< HEAD
       // 阶段 3：根据失败原因处理
       if (credentialResult.reason === 'no_credentials') {
         // 没有保存的凭据，直接显示登录弹窗
@@ -212,6 +276,18 @@ const useAuthStore = create<AuthState>((set) => ({
         Toast.show({ type: "error", text1: "服务器连接失败", text2: error.message });
       } else if (error instanceof Error) {
         Toast.show({ type: "error", text1: "连接错误", text2: error.message });
+=======
+      set({ isLoggedIn: false, isLoginModalVisible: true });
+    } catch (error) {
+      logger.error("Failed to check login status:", error);
+      if (error instanceof Error && error.message.startsWith("后端通信")) {
+        Toast.show({ type: "error", text1: "Connection Error", text2: "Unable to connect to server. Please check your network and API settings." });
+        set({ isLoggedIn: false, isLoginModalVisible: true });
+      } else if (error instanceof Error && error.message === "UNAUTHORIZED") {
+        set({ isLoggedIn: false, isLoginModalVisible: true });
+      } else {
+        set({ isLoggedIn: false, isLoginModalVisible: true });
+>>>>>>> 0094e2d5a080c20995b33106ae727e8818cbda64
       }
       set({ isLoggedIn: false, isLoginModalVisible: true });
     }
