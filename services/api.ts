@@ -93,7 +93,19 @@ export class API {
       throw new Error("API_URL_NOT_SET");
     }
 
-    const response = await fetch(`${this.baseURL}${url}`, options);
+    // 从 AsyncStorage 获取存储的认证 cookie
+    const authToken = await AsyncStorage.getItem('authCookies');
+    
+    // 添加认证头
+    const headers = {
+      ...options.headers,
+      ...(authToken && { 'Cookie': authToken }),
+    };
+
+    const response = await fetch(`${this.baseURL}${url}`, {
+      ...options,
+      headers,
+    });
 
     if (response.status === 401) {
       throw new Error("UNAUTHORIZED");
@@ -122,11 +134,21 @@ export class API {
     return response.json();
   }
 
+  async validateSession(): Promise<boolean> {
+    try {
+      await this.getFavorites();
+      return true;
+    } catch (error) {
+      // 非 UNAUTHORIZED 错误也返回 false，让流程继续尝试凭据登录
+      return false;
+    }
+  }
+
   async logout(): Promise<{ ok: boolean }> {
     const response = await this._fetch("/api/logout", {
       method: "POST",
     });
-    await AsyncStorage.setItem("authCookies", '');
+    await AsyncStorage.setItem("authCookies", "");
     return response.json();
   }
 

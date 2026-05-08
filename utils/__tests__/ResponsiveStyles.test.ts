@@ -33,11 +33,13 @@ const mockedDeviceUtils = DeviceUtils as jest.Mocked<typeof DeviceUtils>;
 describe("ResponsiveStyles", () => {
   const mockConfig: ResponsiveConfig = {
     deviceType: "mobile",
+    columns: 3,
+    cardWidth: 120,
+    cardHeight: 180,
     spacing: 16,
-    safeAreaInsets: { top: 0, bottom: 0, left: 0, right: 0 },
-    windowWidth: 375,
-    windowHeight: 812,
-    isLandscape: false,
+    isPortrait: true,
+    screenWidth: 375,
+    screenHeight: 812,
   };
 
   beforeEach(() => {
