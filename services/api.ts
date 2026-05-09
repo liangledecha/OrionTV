@@ -94,10 +94,8 @@ export class API {
       throw new Error("API_URL_NOT_SET");
     }
 
-    // 从 AsyncStorage 获取存储的认证 cookie
     const authToken = await AsyncStorage.getItem('authCookies');
     
-    // 添加认证头（skipAuth 时跳过，避免过期 cookie 导致公开端点 401）
     const headers = {
       ...options.headers,
       ...(authToken && !options.skipAuth && { 'Cookie': authToken }),
@@ -127,7 +125,6 @@ export class API {
       body: JSON.stringify({ username, password }),
     });
 
-    // 存储cookie到AsyncStorage
     const cookies = response.headers.get("Set-Cookie");
     if (cookies) {
       await AsyncStorage.setItem("authCookies", cookies);
@@ -137,11 +134,10 @@ export class API {
         // 忽略原生 cookie 管理器错误
       }
     } else {
-      // RN fetch 通常读不到 Set-Cookie，尝试从原生 cookie 管理器读取
       try {
         const nativeCookies = await CookieManager.get(this.baseURL);
         const cookieStr = Object.values(nativeCookies)
-          .map((c) => `${c.name}=${c.value}`)
+          .map((c: any) => `${c.name}=${c.value}`)
           .join("; ");
         if (cookieStr) {
           await AsyncStorage.setItem("authCookies", cookieStr);
@@ -159,40 +155,10 @@ export class API {
       await this.getFavorites();
       return true;
     } catch (error) {
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
->>>>>>> cb37368ed8437040b91ad472c9b787fe495427a7
->>>>>>> e95f1624fed2722898e1f50230f8e54a71aa2c8d
->>>>>>> cf55e7ed14b9bb31c39dc220b7026d8c0269b52d
->>>>>>> 5f8d69c57c0d01b9c7bb8a7c24f319905421faa5
-      // 只有 UNAUTHORIZED 才认为是 session 失效，其他错误应抛出让调用方处理
       if (error instanceof Error && error.message === "UNAUTHORIZED") {
         return false;
       }
       throw error;
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
-=======
-=======
-      // 非 UNAUTHORIZED 错误也返回 false，让流程继续尝试凭据登录
-      return false;
->>>>>>> 0094e2d5a080c20995b33106ae727e8818cbda64
->>>>>>> cb37368ed8437040b91ad472c9b787fe495427a7
->>>>>>> e95f1624fed2722898e1f50230f8e54a71aa2c8d
->>>>>>> cf55e7ed14b9bb31c39dc220b7026d8c0269b52d
->>>>>>> 5f8d69c57c0d01b9c7bb8a7c24f319905421faa5
     }
   }
 
@@ -201,43 +167,15 @@ export class API {
       method: "POST",
     });
     await AsyncStorage.setItem("authCookies", "");
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
->>>>>>> cb37368ed8437040b91ad472c9b787fe495427a7
->>>>>>> e95f1624fed2722898e1f50230f8e54a71aa2c8d
->>>>>>> cf55e7ed14b9bb31c39dc220b7026d8c0269b52d
->>>>>>> 5f8d69c57c0d01b9c7bb8a7c24f319905421faa5
     try {
       await CookieManager.clearAll();
     } catch {
       // 忽略
     }
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
-=======
-=======
->>>>>>> 0094e2d5a080c20995b33106ae727e8818cbda64
->>>>>>> cb37368ed8437040b91ad472c9b787fe495427a7
->>>>>>> e95f1624fed2722898e1f50230f8e54a71aa2c8d
->>>>>>> cf55e7ed14b9bb31c39dc220b7026d8c0269b52d
->>>>>>> 5f8d69c57c0d01b9c7bb8a7c24f319905421faa5
     return response.json();
   }
 
   async getServerConfig(): Promise<ServerConfig> {
-    // 服务器配置端点应为公开接口，跳过认证 cookie 防止过期 cookie 导致 401
     const response = await this._fetch("/api/server-config", { skipAuth: true });
     return response.json();
   }
