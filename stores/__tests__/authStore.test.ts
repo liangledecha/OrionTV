@@ -5,38 +5,33 @@ jest.mock("@react-native-async-storage/async-storage", () => ({
 }));
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import useAuthStore from "../authStore";
+import useAuthStore, { __resetCheckLoginStatusForTest } from "../authStore";
 import { api } from "@/services/api";
-import Toast from "react-native-toast-message";
 
 jest.mock("@/stores/settingsStore", () => ({
   useSettingsStore: {
     getState: jest.fn(() => ({
       serverConfig: { StorageType: "localstorage" },
       isLoadingServerConfig: false,
+      username: "",
+      password: "test-pass",
     })),
   },
 }));
 
 jest.mock("@/services/api", () => ({
   api: {
-    validateSession: jest.fn(),
     login: jest.fn(),
-    getFavorites: jest.fn(),
   },
-}));
-
-jest.mock("react-native-toast-message", () => ({
-  show: jest.fn(),
 }));
 
 const mockedAsyncStorage = AsyncStorage as jest.Mocked<typeof AsyncStorage>;
 const mockedApi = api as jest.Mocked<typeof api>;
-const mockedToast = Toast as unknown as { show: jest.Mock };
 
 describe("AuthStore", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    __resetCheckLoginStatusForTest();
     useAuthStore.setState({ isLoggedIn: false, isLoginModalVisible: false });
   });
 
@@ -48,59 +43,42 @@ describe("AuthStore", () => {
     expect(state.isLoginModalVisible).toBe(false);
   });
 
-  it("should accept valid cookie session and not require credential login", async () => {
-    mockedAsyncStorage.getItem.mockImplementation(async (key: string) => {
-      if (key === "authCookies") return "valid-cookie";
-      return null;
-    });
-    mockedApi.validateSession.mockResolvedValue(true);
-
-    await useAuthStore.getState().checkLoginStatus("http://example.com");
-
-    expect(mockedApi.validateSession).toHaveBeenCalled();
-    expect(useAuthStore.getState().isLoggedIn).toBe(true);
-    expect(useAuthStore.getState().isLoginModalVisible).toBe(false);
-  });
-
-  it("should retry credential login when cookie is invalid and save credentials on success", async () => {
-    mockedAsyncStorage.getItem.mockImplementation(async (key: string) => {
-      if (key === "authCookies") return "invalid-cookie";
-      if (key === "mytv_login_credentials") {
-        return JSON.stringify({ username: "test-user", password: "test-pass" });
-      }
-      return null;
-    });
-    mockedApi.validateSession.mockRejectedValue(new Error("UNAUTHORIZED"));
+  it("should login successfully with credentials from settings", async () => {
     mockedApi.login.mockResolvedValue({ ok: true });
 
     await useAuthStore.getState().checkLoginStatus("http://example.com");
 
-    expect(mockedApi.validateSession).toHaveBeenCalled();
+    // 应该清除旧 cookie
+    expect(mockedAsyncStorage.setItem).toHaveBeenCalledWith("authCookies", "");
+    // 应该使用 settingsStore 中的密码登录
     expect(mockedApi.login).toHaveBeenCalledWith(undefined, "test-pass");
-    expect(mockedAsyncStorage.setItem).toHaveBeenCalledWith(
-      "mytv_login_credentials",
-      JSON.stringify({ username: "test-user", password: "test-pass" })
-    );
     expect(useAuthStore.getState().isLoggedIn).toBe(true);
     expect(useAuthStore.getState().isLoginModalVisible).toBe(false);
   });
 
-  it("should retry credentials three times then show backend error when login fails with status code", async () => {
-    mockedAsyncStorage.getItem.mockImplementation(async (key: string) => {
-      if (key === "authCookies") return "invalid-cookie";
-      if (key === "mytv_login_credentials") {
-        return JSON.stringify({ username: "test-user", password: "test-pass" });
-      }
-      return null;
-    });
-    mockedApi.validateSession.mockRejectedValue(new Error("UNAUTHORIZED"));
+  it("should retry login three times then fail on backend error", async () => {
     mockedApi.login.mockRejectedValue(new Error("HTTP error! status: 502"));
 
     await useAuthStore.getState().checkLoginStatus("http://example.com");
 
     expect(mockedApi.login).toHaveBeenCalledTimes(3);
-    expect(mockedToast.show).toHaveBeenCalledWith({ type: "error", text1: "服务器错误", text2: "服务器暂时不可用，请稍后重试" });
     expect(useAuthStore.getState().isLoggedIn).toBe(false);
-    expect(useAuthStore.getState().isLoginModalVisible).toBe(true);
+    // 弹窗已禁用
+    expect(useAuthStore.getState().isLoginModalVisible).toBe(false);
+  });
+
+  it("should set logged out when no password in settings", async () => {
+    const { useSettingsStore } = require("@/stores/settingsStore");
+    useSettingsStore.getState.mockReturnValue({
+      serverConfig: { StorageType: "redis" },
+      isLoadingServerConfig: false,
+      username: "",
+      password: "",
+    });
+
+    await useAuthStore.getState().checkLoginStatus("http://example.com");
+
+    expect(mockedApi.login).not.toHaveBeenCalled();
+    expect(useAuthStore.getState().isLoggedIn).toBe(false);
   });
 });

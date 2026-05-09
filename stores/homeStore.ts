@@ -105,9 +105,7 @@ const useHomeStore = create<HomeState>((set, get) => ({
   error: null,
 
   fetchInitialData: async () => {
-    const { apiBaseUrl } = useSettingsStore.getState();
-    await useAuthStore.getState().checkLoginStatus(apiBaseUrl);
-
+    // 不再在这里调用 checkLoginStatus，由 _layout.tsx 统一处理启动登录
     const { selectedCategory } = get();
     const cacheKey = getCacheKey(selectedCategory);
 
@@ -167,7 +165,6 @@ const useHomeStore = create<HomeState>((set, get) => ({
               play_time: record.play_time,
             };
           })
-          // .filter((record) => record.progress !== undefined && record.progress > 0 && record.progress < 1)
           .sort((a, b) => (b.lastPlayed || 0) - (a.lastPlayed || 0));
 
         set({ contentData: rowItems, hasMore: false });
@@ -254,21 +251,18 @@ const useHomeStore = create<HomeState>((set, get) => ({
         errorMessage = "请点击右上角设置按钮，配置您的服务器地址";
       } else if (err.message === "UNAUTHORIZED") {
         if (allowRetry) {
-          // 尝试自动恢复认证
-          const { apiBaseUrl } = useSettingsStore.getState();
-          await useAuthStore.getState().checkLoginStatus(apiBaseUrl);
+          // 尝试自动恢复认证（通过 _layout.tsx 的 checkLoginStatus 已获取新 cookie）
           const { isLoggedIn } = useAuthStore.getState();
-
           if (isLoggedIn) {
-            // 自动恢复成功，重试一次数据加载
             set({ error: null });
             await get().loadMoreData(false);
             return;
           }
         }
-
-        errorMessage = "认证失败，请重新登录";
+        errorMessage = "认证失败，请在设置中检查账号密码";
         useAuthStore.setState({ isLoggedIn: false });
+        // 旧逻辑：弹出登录弹窗。已注释掉，如需恢复请取消注释以下代码
+        // useAuthStore.setState({ isLoginModalVisible: true });
       } else if (err.message.includes("Network")) {
         errorMessage = "网络连接失败，请检查网络连接";
       } else if (err.message.includes("timeout")) {
@@ -324,8 +318,7 @@ const useHomeStore = create<HomeState>((set, get) => ({
   },
 
   refreshPlayRecords: async () => {
-    const { apiBaseUrl } = useSettingsStore.getState();
-    await useAuthStore.getState().checkLoginStatus(apiBaseUrl);
+    // 不再在这里调用 checkLoginStatus，由 _layout.tsx 统一处理
     const { isLoggedIn } = useAuthStore.getState();
     if (!isLoggedIn) {
       set((state) => {

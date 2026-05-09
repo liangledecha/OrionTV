@@ -2,14 +2,16 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from "@react-navigation/native
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
-import { useEffect } from "react";
-import { Platform, View, StyleSheet } from "react-native";
+import { useEffect, useRef } from "react";
+import { Platform, View, StyleSheet, AppState } from "react-native";
 import Toast from "react-native-toast-message";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import CookieManager from "@react-native-cookies/cookies";
 
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useRemoteControlStore } from "@/stores/remoteControlStore";
-import LoginModal from "@/components/LoginModal";
+// import LoginModal from "@/components/LoginModal";
 import useAuthStore from "@/stores/authStore";
 import { useUpdateStore, initUpdateStore } from "@/stores/updateStore";
 import { UpdateModal } from "@/components/UpdateModal";
@@ -33,6 +35,7 @@ export default function RootLayout() {
   const { checkForUpdate, lastCheckTime } = useUpdateStore();
   const responsiveConfig = useResponsiveLayout();
 
+  // 应用启动时加载设置
   useEffect(() => {
     const initializeApp = async () => {
       await loadSettings();
@@ -41,11 +44,42 @@ export default function RootLayout() {
     initUpdateStore(); // 初始化更新存储
   }, [loadSettings]);
 
+  // 应用启动时：清除旧 cookie，然后使用设置中的账号密码重新登录
+  const hasAutoLoggedIn = useRef(false);
   useEffect(() => {
-    if (apiBaseUrl) {
-      checkLoginStatus(apiBaseUrl);
-    }
+    const autoLogin = async () => {
+      if (apiBaseUrl && !hasAutoLoggedIn.current) {
+        hasAutoLoggedIn.current = true;
+        // 清除旧 cookie，确保使用全新登录
+        await AsyncStorage.setItem('authCookies', '');
+        try {
+          await CookieManager.clearAll();
+        } catch {
+          // 忽略
+        }
+        await checkLoginStatus(apiBaseUrl);
+      }
+    };
+    autoLogin();
   }, [apiBaseUrl, checkLoginStatus]);
+
+  // 应用进入后台时清除 cookie，下次打开时强制重新登录
+  useEffect(() => {
+    const handleAppStateChange = async (nextAppState: string) => {
+      if (nextAppState === 'background' || nextAppState === 'inactive') {
+        logger.info('App going to background, clearing cookies');
+        await AsyncStorage.setItem('authCookies', '');
+        try {
+          await CookieManager.clearAll();
+        } catch {
+          // 忽略
+        }
+      }
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    return () => subscription.remove();
+  }, []);
 
   useEffect(() => {
     if (loaded || error) {
@@ -96,7 +130,8 @@ export default function RootLayout() {
           </Stack>
         </View>
         <Toast />
-        <LoginModal />
+        {/* 登录弹窗已禁用，如需恢复请取消注释以下代码 */}
+        {/* <LoginModal /> */}
         <UpdateModal />
       </ThemeProvider>
     </SafeAreaProvider>
