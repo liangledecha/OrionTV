@@ -96,6 +96,37 @@ describe("App Startup Authentication Integration", () => {
     // Verify graceful failure - no login modal shown
     const state = useAuthStore.getState();
     expect(state.isLoggedIn).toBe(false);
+<<<<<<< HEAD
     expect(state.isLoginModalVisible).toBe(false);
+=======
+    expect(state.isLoginModalVisible).toBe(true);
+
+    // Verify error toast was shown
+    expect(mockedToast.show).toHaveBeenCalledWith({
+      type: "error",
+<<<<<<< HEAD
+      text1: "服务器连接失败",
+      text2: "后端通信网络错误",
+=======
+<<<<<<< HEAD
+      text1: "服务器连接失败",
+      text2: "后端通信网络错误",
+=======
+<<<<<<< HEAD
+      text1: "服务器连接失败",
+      text2: "后端通信网络错误",
+=======
+<<<<<<< HEAD
+      text1: "服务器连接失败",
+      text2: "后端通信网络错误",
+=======
+      text1: "Connection Error",
+      text2: "Unable to connect to server. Please check your network and API settings.",
+>>>>>>> 0094e2d5a080c20995b33106ae727e8818cbda64
+>>>>>>> cb37368ed8437040b91ad472c9b787fe495427a7
+>>>>>>> e95f1624fed2722898e1f50230f8e54a71aa2c8d
+>>>>>>> cf55e7ed14b9bb31c39dc220b7026d8c0269b52d
+    });
+>>>>>>> 5f8d69c57c0d01b9c7bb8a7c24f319905421faa5
   });
 });
