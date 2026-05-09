@@ -159,11 +159,34 @@ export class API {
       await this.getFavorites();
       return true;
     } catch (error) {
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+>>>>>>> cb37368ed8437040b91ad472c9b787fe495427a7
+>>>>>>> e95f1624fed2722898e1f50230f8e54a71aa2c8d
+>>>>>>> cf55e7ed14b9bb31c39dc220b7026d8c0269b52d
       // 只有 UNAUTHORIZED 才认为是 session 失效，其他错误应抛出让调用方处理
       if (error instanceof Error && error.message === "UNAUTHORIZED") {
         return false;
       }
       throw error;
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+=======
+=======
+      // 非 UNAUTHORIZED 错误也返回 false，让流程继续尝试凭据登录
+      return false;
+>>>>>>> 0094e2d5a080c20995b33106ae727e8818cbda64
+>>>>>>> cb37368ed8437040b91ad472c9b787fe495427a7
+>>>>>>> e95f1624fed2722898e1f50230f8e54a71aa2c8d
+>>>>>>> cf55e7ed14b9bb31c39dc220b7026d8c0269b52d
     }
   }
 
@@ -172,11 +195,32 @@ export class API {
       method: "POST",
     });
     await AsyncStorage.setItem("authCookies", "");
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+>>>>>>> cb37368ed8437040b91ad472c9b787fe495427a7
+>>>>>>> e95f1624fed2722898e1f50230f8e54a71aa2c8d
+>>>>>>> cf55e7ed14b9bb31c39dc220b7026d8c0269b52d
     try {
       await CookieManager.clearAll();
     } catch {
       // 忽略
     }
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+=======
+=======
+>>>>>>> 0094e2d5a080c20995b33106ae727e8818cbda64
+>>>>>>> cb37368ed8437040b91ad472c9b787fe495427a7
+>>>>>>> e95f1624fed2722898e1f50230f8e54a71aa2c8d
+>>>>>>> cf55e7ed14b9bb31c39dc220b7026d8c0269b52d
     return response.json();
   }
 

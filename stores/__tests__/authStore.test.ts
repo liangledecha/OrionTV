@@ -99,7 +99,23 @@ describe("AuthStore", () => {
     await useAuthStore.getState().checkLoginStatus("http://example.com");
 
     expect(mockedApi.login).toHaveBeenCalledTimes(3);
+<<<<<<< HEAD
     expect(mockedToast.show).toHaveBeenCalledWith({ type: "error", text1: "服务器错误", text2: "服务器暂时不可用，请稍后重试" });
+=======
+<<<<<<< HEAD
+    expect(mockedToast.show).toHaveBeenCalledWith({ type: "error", text1: "服务器错误", text2: "服务器暂时不可用，请稍后重试" });
+=======
+<<<<<<< HEAD
+    expect(mockedToast.show).toHaveBeenCalledWith({ type: "error", text1: "服务器错误", text2: "服务器暂时不可用，请稍后重试" });
+=======
+<<<<<<< HEAD
+    expect(mockedToast.show).toHaveBeenCalledWith({ type: "error", text1: "服务器错误", text2: "服务器暂时不可用，请稍后重试" });
+=======
+    expect(mockedToast.show).toHaveBeenCalledWith({ type: "error", text1: "Connection Error", text2: "Unable to connect to server. Please check your network and API settings." });
+>>>>>>> 0094e2d5a080c20995b33106ae727e8818cbda64
+>>>>>>> cb37368ed8437040b91ad472c9b787fe495427a7
+>>>>>>> e95f1624fed2722898e1f50230f8e54a71aa2c8d
+>>>>>>> cf55e7ed14b9bb31c39dc220b7026d8c0269b52d
     expect(useAuthStore.getState().isLoggedIn).toBe(false);
     expect(useAuthStore.getState().isLoginModalVisible).toBe(true);
   });
