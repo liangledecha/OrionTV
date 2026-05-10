@@ -55,17 +55,27 @@ describe("App Startup Authentication Integration", () => {
     expect(state.isLoginModalVisible).toBe(false);
   });
 
-  it("should handle login failure gracefully without showing modal", async () => {
-    // Mock credential login fails
+  it("should show login modal when credentials are invalid", async () => {
+    // Mock credential login fails with UNAUTHORIZED
     mockedApi.login.mockRejectedValue(new Error("UNAUTHORIZED"));
 
     // Execute startup flow
     await useAuthStore.getState().checkLoginStatus("http://test.com");
 
-    // Verify graceful failure - no login modal shown
+    // Verify login modal is shown so user can re-enter credentials
     const state = useAuthStore.getState();
     expect(state.isLoggedIn).toBe(false);
-    expect(state.isLoginModalVisible).toBe(false);
+    expect(state.isLoginModalVisible).toBe(true);
+  });
+
+  it("should show login modal when server returns explicit auth failure", async () => {
+    mockedApi.login.mockResolvedValue({ ok: false });
+
+    await useAuthStore.getState().checkLoginStatus("http://test.com");
+
+    const state = useAuthStore.getState();
+    expect(state.isLoggedIn).toBe(false);
+    expect(state.isLoginModalVisible).toBe(true);
   });
 
   it("should set logged out when no credentials in settings", async () => {
@@ -80,53 +90,22 @@ describe("App Startup Authentication Integration", () => {
     // Execute startup flow
     await useAuthStore.getState().checkLoginStatus("http://test.com");
 
-    // Verify login modal is NOT shown (disabled)
+    // Verify login modal is NOT shown when no credentials exist
     const state = useAuthStore.getState();
     expect(state.isLoggedIn).toBe(false);
     expect(state.isLoginModalVisible).toBe(false);
   });
 
-  it("should handle backend connectivity errors gracefully", async () => {
+  it("should handle backend connectivity errors gracefully without showing modal", async () => {
     // Mock network error
     mockedApi.login.mockRejectedValue(new Error("Network Error"));
 
     // Execute startup flow
     await useAuthStore.getState().checkLoginStatus("http://test.com");
 
-    // Verify graceful failure - no login modal shown
+    // Verify graceful failure - no login modal shown for network errors
     const state = useAuthStore.getState();
     expect(state.isLoggedIn).toBe(false);
-<<<<<<< HEAD
     expect(state.isLoginModalVisible).toBe(false);
-=======
-    expect(state.isLoginModalVisible).toBe(true);
-
-    // Verify error toast was shown
-    expect(mockedToast.show).toHaveBeenCalledWith({
-      type: "error",
-<<<<<<< HEAD
-      text1: "服务器连接失败",
-      text2: "后端通信网络错误",
-=======
-<<<<<<< HEAD
-      text1: "服务器连接失败",
-      text2: "后端通信网络错误",
-=======
-<<<<<<< HEAD
-      text1: "服务器连接失败",
-      text2: "后端通信网络错误",
-=======
-<<<<<<< HEAD
-      text1: "服务器连接失败",
-      text2: "后端通信网络错误",
-=======
-      text1: "Connection Error",
-      text2: "Unable to connect to server. Please check your network and API settings.",
->>>>>>> 0094e2d5a080c20995b33106ae727e8818cbda64
->>>>>>> cb37368ed8437040b91ad472c9b787fe495427a7
->>>>>>> e95f1624fed2722898e1f50230f8e54a71aa2c8d
->>>>>>> cf55e7ed14b9bb31c39dc220b7026d8c0269b52d
-    });
->>>>>>> 5f8d69c57c0d01b9c7bb8a7c24f319905421faa5
   });
 });

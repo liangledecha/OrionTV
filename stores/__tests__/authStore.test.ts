@@ -56,15 +56,34 @@ describe("AuthStore", () => {
     expect(useAuthStore.getState().isLoginModalVisible).toBe(false);
   });
 
-  it("should retry login three times then fail on backend error", async () => {
+  it("should retry login three times then fail on backend error without showing modal", async () => {
     mockedApi.login.mockRejectedValue(new Error("HTTP error! status: 502"));
 
     await useAuthStore.getState().checkLoginStatus("http://example.com");
 
     expect(mockedApi.login).toHaveBeenCalledTimes(3);
     expect(useAuthStore.getState().isLoggedIn).toBe(false);
-    // 弹窗已禁用
+    // 服务器错误不弹出登录框，避免打扰用户
     expect(useAuthStore.getState().isLoginModalVisible).toBe(false);
+  });
+
+  it("should show login modal when credentials are invalid", async () => {
+    mockedApi.login.mockRejectedValue(new Error("UNAUTHORIZED"));
+
+    await useAuthStore.getState().checkLoginStatus("http://example.com");
+
+    expect(useAuthStore.getState().isLoggedIn).toBe(false);
+    // 账号密码错误时弹出登录框提示用户重新输入
+    expect(useAuthStore.getState().isLoginModalVisible).toBe(true);
+  });
+
+  it("should show login modal when server explicitly returns auth failure", async () => {
+    mockedApi.login.mockResolvedValue({ ok: false });
+
+    await useAuthStore.getState().checkLoginStatus("http://example.com");
+
+    expect(useAuthStore.getState().isLoggedIn).toBe(false);
+    expect(useAuthStore.getState().isLoginModalVisible).toBe(true);
   });
 
   it("should set logged out when no password in settings", async () => {
@@ -80,5 +99,6 @@ describe("AuthStore", () => {
 
     expect(mockedApi.login).not.toHaveBeenCalled();
     expect(useAuthStore.getState().isLoggedIn).toBe(false);
+    expect(useAuthStore.getState().isLoginModalVisible).toBe(false);
   });
 });

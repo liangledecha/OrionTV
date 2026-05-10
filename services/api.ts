@@ -98,7 +98,7 @@ export class API {
     
     const headers = {
       ...options.headers,
-      ...(authToken && !options.skipAuth && { 'Cookie': authToken }),
+      ...(authToken && authToken.trim() && !options.skipAuth && { 'Cookie': authToken }),
     };
 
     const response = await fetch(`${this.baseURL}${url}`, {

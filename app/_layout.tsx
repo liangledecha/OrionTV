@@ -3,7 +3,7 @@ import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect, useRef } from "react";
-import { Platform, View, StyleSheet, AppState } from "react-native";
+import { Platform, View, StyleSheet, AppState, type AppStateStatus } from "react-native";
 import Toast from "react-native-toast-message";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -11,7 +11,8 @@ import CookieManager from "@react-native-cookies/cookies";
 
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useRemoteControlStore } from "@/stores/remoteControlStore";
-// import LoginModal from "@/components/LoginModal";
+import { useAppStore } from "@/stores/appStore";
+import LoginModal from "@/components/LoginModal";
 import useAuthStore from "@/stores/authStore";
 import { useUpdateStore, initUpdateStore } from "@/stores/updateStore";
 import { UpdateModal } from "@/components/UpdateModal";
@@ -29,43 +30,28 @@ export default function RootLayout() {
   const [loaded, error] = useFonts({
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
   });
-  const { loadSettings, remoteInputEnabled, apiBaseUrl } = useSettingsStore();
+  const { remoteInputEnabled, apiBaseUrl } = useSettingsStore();
   const { startServer, stopServer } = useRemoteControlStore();
-  const { checkLoginStatus } = useAuthStore();
+  const { isAppReady, initializeApp } = useAppStore();
   const { checkForUpdate, lastCheckTime } = useUpdateStore();
   const responsiveConfig = useResponsiveLayout();
 
-  // 应用启动时加载设置
+  // 初始化更新存储
+  initUpdateStore();
+
+  // 应用启动时执行统一的初始化序列：
+  // 加载设置 → 获取服务器配置 → 登录 → isAppReady = true
   useEffect(() => {
-    const initializeApp = async () => {
-      await loadSettings();
-    };
     initializeApp();
-    initUpdateStore(); // 初始化更新存储
-  }, [loadSettings]);
+  }, [initializeApp]);
 
-  // 应用启动时：清除旧 cookie，然后使用设置中的账号密码重新登录
-  const hasAutoLoggedIn = useRef(false);
+  // 应用进入后台时清除 cookie，回到前台时重新登录
+  const appStateRef = useRef(AppState.currentState);
   useEffect(() => {
-    const autoLogin = async () => {
-      if (apiBaseUrl && !hasAutoLoggedIn.current) {
-        hasAutoLoggedIn.current = true;
-        // 清除旧 cookie，确保使用全新登录
-        await AsyncStorage.setItem('authCookies', '');
-        try {
-          await CookieManager.clearAll();
-        } catch {
-          // 忽略
-        }
-        await checkLoginStatus(apiBaseUrl);
-      }
-    };
-    autoLogin();
-  }, [apiBaseUrl, checkLoginStatus]);
+    const handleAppStateChange = async (nextAppState: AppStateStatus) => {
+      const prevState = appStateRef.current;
+      appStateRef.current = nextAppState;
 
-  // 应用进入后台时清除 cookie，下次打开时强制重新登录
-  useEffect(() => {
-    const handleAppStateChange = async (nextAppState: string) => {
       if (nextAppState === 'background' || nextAppState === 'inactive') {
         logger.info('App going to background, clearing cookies');
         await AsyncStorage.setItem('authCookies', '');
@@ -73,6 +59,19 @@ export default function RootLayout() {
           await CookieManager.clearAll();
         } catch {
           // 忽略
+        }
+      } else if (nextAppState === 'active' && (prevState === 'background' || prevState === 'inactive')) {
+        // 应用从后台回到前台，重新检查登录状态
+        logger.info('App returning to foreground, re-checking login status');
+        const currentApiBaseUrl = useSettingsStore.getState().apiBaseUrl;
+        if (currentApiBaseUrl) {
+          await AsyncStorage.setItem('authCookies', '');
+          try {
+            await CookieManager.clearAll();
+          } catch {
+            // 忽略
+          }
+          await useAuthStore.getState().checkLoginStatus(currentApiBaseUrl);
         }
       }
     };
@@ -82,13 +81,13 @@ export default function RootLayout() {
   }, []);
 
   useEffect(() => {
-    if (loaded || error) {
+    if ((loaded || error) && isAppReady) {
       SplashScreen.hideAsync();
       if (error) {
         logger.warn(`Error in loading fonts: ${error}`);
       }
     }
-  }, [loaded, error]);
+  }, [loaded, error, isAppReady]);
 
   // 检查更新
   useEffect(() => {
@@ -110,7 +109,7 @@ export default function RootLayout() {
     }
   }, [remoteInputEnabled, startServer, stopServer, responsiveConfig.deviceType]);
 
-  if (!loaded && !error) {
+  if ((!loaded && !error) || !isAppReady) {
     return null;
   }
 
@@ -130,8 +129,7 @@ export default function RootLayout() {
           </Stack>
         </View>
         <Toast />
-        {/* 登录弹窗已禁用，如需恢复请取消注释以下代码 */}
-        {/* <LoginModal /> */}
+        <LoginModal />
         <UpdateModal />
       </ThemeProvider>
     </SafeAreaProvider>

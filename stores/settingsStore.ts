@@ -19,6 +19,7 @@ interface SettingsState {
   };
   isModalVisible: boolean;
   serverConfig: ServerConfig | null;
+  serverConfigError: string | null;
   isLoadingServerConfig: boolean;
   username: string;
   password: string;
@@ -38,10 +39,10 @@ interface SettingsState {
 export const useSettingsStore = create<SettingsState>((set, get) => ({
   apiBaseUrl: "",
   m3uUrl: "",
-  liveStreamSources: [],
   remoteInputEnabled: false,
   isModalVisible: false,
   serverConfig: null,
+  serverConfigError: null,
   isLoadingServerConfig: false,
   username: "",
   password: "",
@@ -61,6 +62,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         enabledAll: true,
         sources: {},
       },
+      serverConfig: null,
+      serverConfigError: null,
     });
     if (settings.apiBaseUrl) {
       api.setBaseUrl(settings.apiBaseUrl);
@@ -68,15 +71,39 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     }
   },
   fetchServerConfig: async () => {
-    set({ isLoadingServerConfig: true });
+    set({ isLoadingServerConfig: true, serverConfigError: null });
     try {
       const config = await api.getServerConfig();
-      if (config) {
+      if (config && config.SiteName) {
         storageConfig.setStorageType(config.StorageType);
-        set({ serverConfig: config });
+        set({ serverConfig: config, serverConfigError: null });
+      } else {
+        set({ serverConfig: null, serverConfigError: '服务器返回了无效的配置信息' });
       }
-    } catch (error) {
-      set({ serverConfig: null });
+    } catch (error: any) {
+      let errorMessage = '无法获取服务器配置';
+      if (error instanceof Error) {
+        switch (error.message) {
+          case 'API_URL_NOT_SET':
+            errorMessage = 'API地址未设置';
+            break;
+          case 'UNAUTHORIZED':
+            errorMessage = '服务器认证失败';
+            break;
+          default:
+            if (error.message.includes('Network')) {
+              errorMessage = '网络连接失败，请检查网络或服务器地址';
+            } else if (error.message.includes('timeout')) {
+              errorMessage = '连接超时，请检查服务器地址';
+            } else if (error.message.includes('404')) {
+              errorMessage = '服务器配置接口不存在，请检查服务器版本';
+            } else if (error.message.includes('500')) {
+              errorMessage = '服务器内部错误';
+            }
+            break;
+        }
+      }
+      set({ serverConfig: null, serverConfigError: errorMessage });
       logger.error("Failed to fetch server config:", error);
     } finally {
       set({ isLoadingServerConfig: false });
@@ -124,7 +151,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     }
     api.setBaseUrl(processedApiBaseUrl);
     // Also update the URL in the state so the input field shows the processed URL
-    set({ isModalVisible: false, apiBaseUrl: processedApiBaseUrl });
+    set({ isModalVisible: false, apiBaseUrl: processedApiBaseUrl, serverConfigError: null });
     await get().fetchServerConfig();
   },
   showModal: () => set({ isModalVisible: true }),

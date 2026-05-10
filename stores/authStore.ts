@@ -3,6 +3,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import CookieManager from "@react-native-cookies/cookies";
 import { api } from "@/services/api";
 import { useSettingsStore } from "./settingsStore";
+import { LoginCredentialsManager } from "@/services/storage";
 import Logger from "@/utils/Logger";
 
 const logger = Logger.withTag('AuthStore');
@@ -74,10 +75,8 @@ const useAuthStore = create<AuthState>((set) => ({
           }
         }
 
-        if (!serverConfig?.StorageType) {
-          set({ isLoggedIn: false, isLoginModalVisible: false });
-          return;
-        }
+        // 如果无法获取服务器配置，仍然尝试登录（假设不是 localstorage 模式）
+        // 登录成功后再获取配置也不迟
 
         // 清除旧 cookie，准备重新登录
         await AsyncStorage.setItem('authCookies', '');
@@ -87,8 +86,17 @@ const useAuthStore = create<AuthState>((set) => ({
           // 忽略原生 cookie 管理器错误
         }
 
-        const { username, password } = settingsState;
+        let { username, password } = settingsState;
         const isLocalStorage = serverConfig?.StorageType === "localstorage";
+
+        // 如果 settingsStore 中没有凭据，尝试从 LoginCredentialsManager 读取
+        if (!username && !password) {
+          const savedCreds = await LoginCredentialsManager.get();
+          if (savedCreds) {
+            username = savedCreds.username;
+            password = savedCreds.password;
+          }
+        }
 
         // localstorage 模式下无密码也可以（后端不需要认证）
         if (!password && !isLocalStorage) {
@@ -111,14 +119,14 @@ const useAuthStore = create<AuthState>((set) => ({
               set({ isLoggedIn: true, isLoginModalVisible: false });
               return;
             }
-            // 服务器明确返回认证失败，不再重试
-            set({ isLoggedIn: false });
+            // 服务器明确返回认证失败（账号密码错误），弹出登录框提示用户
+            set({ isLoggedIn: false, isLoginModalVisible: true });
             return;
           } catch (error) {
             if (error instanceof Error) {
-              // 后端明确拒绝认证（401），不需要重试
+              // 后端明确拒绝认证（401），账号密码错误，弹出登录框提示用户
               if (error.message === "UNAUTHORIZED") {
-                set({ isLoggedIn: false });
+                set({ isLoggedIn: false, isLoginModalVisible: true });
                 return;
               }
 

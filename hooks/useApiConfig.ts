@@ -1,6 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
 import { useSettingsStore } from '@/stores/settingsStore';
-import { api } from '@/services/api';
 
 export interface ApiConfigStatus {
   isConfigured: boolean;
@@ -10,132 +8,21 @@ export interface ApiConfigStatus {
   needsConfiguration: boolean;
 }
 
-// 全局缓存，避免不同组件实例重复验证同一地址
-let globalValidatedUrl: string | null = null;
-let globalValidationResult: { isValid: boolean; error: string | null } | null = null;
-
+/**
+ * 纯派生状态的 Hook，直接基于 settingsStore 的状态计算 API 配置状态。
+ * 不发起任何独立的网络请求，避免与 settingsStore.fetchServerConfig() 产生竞态。
+ */
 export const useApiConfig = () => {
-  const { apiBaseUrl, serverConfig, isLoadingServerConfig } = useSettingsStore();
-  const [validationState, setValidationState] = useState<{
-    isValidating: boolean;
-    isValid: boolean | null;
-    error: string | null;
-  }>({
-    isValidating: false,
-    isValid: null,
-    error: null,
-  });
-  const hasValidatedRef = useRef(false);
+  const { apiBaseUrl, serverConfig, isLoadingServerConfig, serverConfigError } = useSettingsStore();
 
   const isConfigured = Boolean(apiBaseUrl && apiBaseUrl.trim());
-  const needsConfiguration = !isConfigured;
-
-  // Validate API configuration when it changes
-  useEffect(() => {
-    if (!isConfigured) {
-      setValidationState({
-        isValidating: false,
-        isValid: false,
-        error: null,
-      });
-      hasValidatedRef.current = false;
-      return;
-    }
-
-    // 如果全局已验证过同一地址，直接复用结果
-    if (globalValidatedUrl === apiBaseUrl && globalValidationResult) {
-      setValidationState({
-        isValidating: false,
-        isValid: globalValidationResult.isValid,
-        error: globalValidationResult.error,
-      });
-      hasValidatedRef.current = true;
-      return;
-    }
-
-    const validateConfig = async () => {
-      setValidationState(prev => ({ ...prev, isValidating: true, error: null }));
-
-      try {
-        await api.getServerConfig();
-        const result = { isValid: true as boolean, error: null as string | null };
-        globalValidatedUrl = apiBaseUrl;
-        globalValidationResult = result;
-        setValidationState({
-          isValidating: false,
-          isValid: true,
-          error: null,
-        });
-      } catch (error) {
-        let errorMessage = '服务器连接失败';
-
-        if (error instanceof Error) {
-          switch (error.message) {
-            case 'API_URL_NOT_SET':
-              errorMessage = 'API地址未设置';
-              break;
-            case 'UNAUTHORIZED':
-              errorMessage = '服务器认证失败';
-              break;
-            default:
-              if (error.message.includes('Network')) {
-                errorMessage = '网络连接失败，请检查网络或服务器地址';
-              } else if (error.message.includes('timeout')) {
-                errorMessage = '连接超时，请检查服务器地址';
-              } else if (error.message.includes('404')) {
-                errorMessage = '服务器地址无效，请检查API路径';
-              } else if (error.message.includes('500')) {
-                errorMessage = '服务器内部错误';
-              }
-              break;
-          }
-        }
-
-        const result = { isValid: false as boolean, error: errorMessage };
-        globalValidatedUrl = apiBaseUrl;
-        globalValidationResult = result;
-        setValidationState({
-          isValidating: false,
-          isValid: false,
-          error: errorMessage,
-        });
-      }
-    };
-
-    // Only validate if not already loading server config
-    if (!isLoadingServerConfig) {
-      validateConfig();
-    }
-  }, [apiBaseUrl, isConfigured, isLoadingServerConfig]);
-
-  // Reset validation when server config loading state changes
-  useEffect(() => {
-    if (isLoadingServerConfig) {
-      setValidationState(prev => ({ ...prev, isValidating: true, error: null }));
-    }
-  }, [isLoadingServerConfig]);
-
-  // Update validation state based on server config
-  useEffect(() => {
-    if (!isLoadingServerConfig && isConfigured) {
-      if (serverConfig) {
-        setValidationState(prev => ({ ...prev, isValid: true, error: null }));
-      } else {
-        setValidationState(prev => ({
-          ...prev,
-          isValid: false,
-          error: prev.error || '无法获取服务器配置'
-        }));
-      }
-    }
-  }, [serverConfig, isLoadingServerConfig, isConfigured]);
 
   const status: ApiConfigStatus = {
     isConfigured,
-    isValidating: validationState.isValidating || isLoadingServerConfig,
-    isValid: validationState.isValid,
-    error: validationState.error,
-    needsConfiguration,
+    isValidating: isLoadingServerConfig,
+    isValid: serverConfig !== null,
+    error: serverConfigError,
+    needsConfiguration: !isConfigured,
   };
 
   return status;

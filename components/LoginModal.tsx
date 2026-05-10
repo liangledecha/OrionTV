@@ -6,7 +6,7 @@ import useAuthStore from "@/stores/authStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import useHomeStore from "@/stores/homeStore";
 import { api } from "@/services/api";
-import { LoginCredentialsManager } from "@/services/storage";
+import { LoginCredentialsManager, SettingsManager } from "@/services/storage";
 import { ThemedView } from "./ThemedView";
 import { ThemedText } from "./ThemedText";
 import { StyledButton } from "./StyledButton";
@@ -28,7 +28,7 @@ const LoginModal = () => {
   // Load saved credentials when modal opens
   useEffect(() => {
     if (isLoginModalVisible && !isSettingsPage) {
-            // 先确保键盘状态清理
+      // 先确保键盘状态清理
       Keyboard.dismiss();
 
       const loadCredentials = async () => {
@@ -36,6 +36,11 @@ const LoginModal = () => {
         if (savedCredentials) {
           setUsername(savedCredentials.username);
           setPassword(savedCredentials.password);
+        } else {
+          // 回退到 settingsStore 中的凭据
+          const { username: savedUsername, password: savedPassword } = useSettingsStore.getState();
+          if (savedUsername) setUsername(savedUsername);
+          if (savedPassword) setPassword(savedPassword);
         }
       };
       loadCredentials();
@@ -88,6 +93,10 @@ const LoginModal = () => {
     try {
       // 1. 先保存凭据，确保后续自动恢复能读到
       await LoginCredentialsManager.save({ username, password });
+      // 同步保存到 settingsStore 和 SettingsManager，供 authStore 自动登录使用
+      useSettingsStore.getState().setUsername(username);
+      useSettingsStore.getState().setPassword(password);
+      await SettingsManager.save({ username, password });
 
       const loginResult = await api.login(isLocalStorage ? undefined : username, password);
       if (!loginResult.ok) {
@@ -96,7 +105,8 @@ const LoginModal = () => {
         return;
       }
 
-      // 登录成功，刷新登录状态和数据
+      // 登录成功，获取最新 cookie 并刷新登录状态和数据
+      // api.login 内部已将最新 cookie 保存到 AsyncStorage 和 CookieManager
       await checkLoginStatus(apiBaseUrl);
       await refreshPlayRecords();
 

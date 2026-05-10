@@ -29,11 +29,11 @@ try {
 
 Write-Host ""
 Write-Host "Step 2: Copying TV-specific configurations..." -ForegroundColor Yellow
-if (Test-Path "xml") {
-    Copy-Item -Path "xml\*" -Destination "android\app\src\" -Recurse -Force
-    Write-Host "TV configurations copied successfully." -ForegroundColor Green
+if (Test-Path "xml\AndroidManifest.xml") {
+    Copy-Item -Path "xml\AndroidManifest.xml" -Destination "android\app\src\main\AndroidManifest.xml" -Force
+    Write-Host "AndroidManifest.xml copied successfully." -ForegroundColor Green
 } else {
-    Write-Host "Warning: xml directory not found, skipping config copy." -ForegroundColor Yellow
+    Write-Host "Warning: xml/AndroidManifest.xml not found, skipping config copy." -ForegroundColor Yellow
 }
 
 Write-Host ""

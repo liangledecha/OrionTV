@@ -8,7 +8,6 @@ import { useThemeColor } from "@/hooks/useThemeColor";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useRemoteControlStore } from "@/stores/remoteControlStore";
 import { APIConfigSection } from "@/components/settings/APIConfigSection";
-import { LoginConfigSection } from "@/components/settings/LoginConfigSection";
 import { LiveStreamSection } from "@/components/settings/LiveStreamSection";
 import { RemoteInputSection } from "@/components/settings/RemoteInputSection";
 import { UpdateSection } from "@/components/settings/UpdateSection";
@@ -132,18 +131,6 @@ export default function SettingsScreen() {
         />
       ),
       key: "api",
-    },
-    {
-      component: (
-        <LoginConfigSection
-          onChanged={markAsChanged}
-          onFocus={() => {
-            setCurrentFocusIndex(2);
-            setCurrentSection("login");
-          }}
-        />
-      ),
-      key: "login",
     },
     deviceType !== "mobile" && {
       component: (

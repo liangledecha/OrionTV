@@ -259,10 +259,8 @@ const useHomeStore = create<HomeState>((set, get) => ({
             return;
           }
         }
-        errorMessage = "认证失败，请在设置中检查账号密码";
-        useAuthStore.setState({ isLoggedIn: false });
-        // 旧逻辑：弹出登录弹窗。已注释掉，如需恢复请取消注释以下代码
-        // useAuthStore.setState({ isLoginModalVisible: true });
+        errorMessage = "认证失败，请重新输入账号密码";
+        useAuthStore.setState({ isLoggedIn: false, isLoginModalVisible: true });
       } else if (err.message.includes("Network")) {
         errorMessage = "网络连接失败，请检查网络连接";
       } else if (err.message.includes("timeout")) {

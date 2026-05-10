@@ -10,6 +10,7 @@ import { Search, Settings, LogOut, Heart } from "lucide-react-native";
 import { StyledButton } from "@/components/StyledButton";
 import useHomeStore, { RowItem, Category } from "@/stores/homeStore";
 import useAuthStore from "@/stores/authStore";
+import { useAppStore } from "@/stores/appStore";
 import CustomScrollView from "@/components/CustomScrollView";
 import { useResponsiveLayout } from "@/hooks/useResponsiveLayout";
 import { getCommonResponsiveStyles } from "@/utils/ResponsiveStyles";
@@ -45,6 +46,7 @@ export default function HomeScreen() {
     clearError,
   } = useHomeStore();
   const { isLoggedIn, logout } = useAuthStore();
+  const { isAppReady } = useAppStore();
   const apiConfigStatus = useApiConfig();
 
   useFocusEffect(
@@ -87,7 +89,9 @@ export default function HomeScreen() {
 );
 
   // 统一的数据获取逻辑
+  // 关键：只有在应用初始化完成（登录等准备就绪）后才允许加载影片数据
   useEffect(() => {
+    if (!isAppReady) return;
     if (!selectedCategory) return;
 
     // 如果是容器分类且没有选择标签，设置默认标签
@@ -110,6 +114,7 @@ export default function HomeScreen() {
       }
     }
   }, [
+    isAppReady,
     selectedCategory,
     selectedCategory?.tag,
     apiConfigStatus.isConfigured,
@@ -331,14 +336,14 @@ export default function HomeScreen() {
             {getApiConfigErrorMessage(apiConfigStatus)}
           </ThemedText>
         </View>
-      ) : apiConfigStatus.isValidating ? (
+      ) : apiConfigStatus.isValidating && contentData.length === 0 ? (
         <View style={commonStyles.center}>
           <ActivityIndicator size="large" />
           <ThemedText type="subtitle" style={{ padding: spacing, textAlign: "center" }}>
             正在验证服务器配置...
           </ThemedText>
         </View>
-      ) : apiConfigStatus.error && !apiConfigStatus.isValid ? (
+      ) : apiConfigStatus.error && !apiConfigStatus.isValid && contentData.length === 0 ? (
         <View style={commonStyles.center}>
           <ThemedText type="subtitle" style={{ padding: spacing, textAlign: "center" }}>
             {apiConfigStatus.error}
