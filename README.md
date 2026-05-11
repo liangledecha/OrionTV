@@ -1,8 +1,12 @@
 # OrionTV 📺
 
 一个基于 React Native TVOS 和 Expo 构建的播放器，旨在提供流畅的视频观看体验。
+
 # 本分支旨在自行解决一些bug，因代码能力低手，遂与master分开
+
 # 特大好消息，1.3.137版本应该正常了，试了几次没问题
+
+# 特特大好消息，1.3.138版本已经在测试iptv和去广告功能，晚点感觉没啥bug再发
 
 ## ✨ 功能特性
 
@@ -15,7 +19,7 @@
 
 - **前端**:
   - [React Native TVOS](https://github.com/react-native-tvos/react-native-tvos)
-  - [Expo](https://expo.dev/) (~51.0)
+  - [Expo](https://expo.dev/) (\~51.0)
   - [Expo Router](https://docs.expo.dev/router/introduction/)
   - [Expo AV](https://docs.expo.dev/versions/latest/sdk/av/)
   - TypeScript
@@ -72,7 +76,6 @@ yarn android-tv
 
 - 1.2.x 以上版本需配合 [MoonTV](https://github.com/senshinya/MoonTV) 使用。
 
-
 ## 📜 主要脚本
 
 - `yarn start`: 在手机模式下启动 Metro Bundler。
@@ -94,7 +97,7 @@ OrionTV 仅作为视频搜索工具，不存储、上传或分发任何视频内
 
 ## 🌟 Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=zimplexing/OrionTV&type=Date)](https://www.star-history.com/#zimplexing/OrionTV&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=zimplexing/OrionTV\&type=Date "Star History Chart")](https://www.star-history.com/#zimplexing/OrionTV\&Date)
 
 ## 🙏 致谢
 
@@ -102,7 +105,10 @@ OrionTV 仅作为视频搜索工具，不存储、上传或分发任何视频内
 
 - [MoonTV](https://github.com/senshinya/MoonTV) - 一个基于 Next.js 的视频聚合应用
 - [LibreTV](https://github.com/LibreSpark/LibreTV) - 一个开源的视频流媒体应用
+- [MoonTVPlus](https://github.com/mtvpls/MoonTVPlus) - 一个基于 Next.js 的视频聚合应用（小声：去广告功能是从这来的）
+- [yourtv](https://github.com/horsemail/yourtv) - 一个安卓电视/手机直播APK（小声：IPTV功能是从这来的）
 
 感谢以下项目提供 API Key 的赞助
 
 - [gpt-load](https://github.com/tbphp/gpt-load) - 一个高性能的 OpenAI 格式 API 多密钥轮询代理服务器，支持负载均衡，使用 Go 语言开发
+
