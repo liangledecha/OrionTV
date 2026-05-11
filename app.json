@@ -44,6 +44,8 @@
     ],
     "android": {
       "package": "com.oriontv",
+      "versionCode": 1138138,
+      "version": "1.3.138",
       "usesCleartextTraffic": true,
       "hardwareAcceleration": true,
       "networkSecurityConfig": "@xml/network_security_config",

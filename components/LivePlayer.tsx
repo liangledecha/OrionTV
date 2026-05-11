@@ -1,20 +1,44 @@
-import React, { useRef, useState, useEffect } from "react";
-import { View, StyleSheet, Text, ActivityIndicator } from "react-native";
+import React, { useRef, useState, useEffect, useCallback } from "react";
+import { View, StyleSheet, Text, ActivityIndicator, useTVEventHandler, HWEvent } from "react-native";
 import { Video, ResizeMode, AVPlaybackStatus } from "expo-av";
 import { useKeepAwake } from "expo-keep-awake";
+import { useSettingsStore } from "@/stores/settingsStore";
+import { useResponsiveLayout } from "@/hooks/useResponsiveLayout";
+import Logger from '@/utils/Logger';
+
+const logger = Logger.withTag('LivePlayer');
 
 interface LivePlayerProps {
   streamUrl: string | null;
   channelTitle?: string | null;
   onPlaybackStatusUpdate: (status: AVPlaybackStatus) => void;
+  onChannelChange?: (direction: 'next' | 'prev') => void;
+  isChannelListVisible?: boolean;
 }
 
-const PLAYBACK_TIMEOUT = 15000; // 15 seconds
+const PLAYBACK_TIMEOUT = 15000;
+const AD_KEYWORDS = [
+  'sponsor',
+  '/ad/',
+  '/ads/',
+  'advert',
+  'advertisement',
+  '/adjump',
+  'redtraffic',
+];
 
-export default function LivePlayer({ streamUrl, channelTitle, onPlaybackStatusUpdate }: LivePlayerProps) {
+export default function LivePlayer({ 
+  streamUrl, 
+  channelTitle, 
+  onPlaybackStatusUpdate,
+  onChannelChange,
+  isChannelListVisible = false 
+}: LivePlayerProps) {
   const video = useRef<Video>(null);
+  const { deviceType } = useResponsiveLayout();
   const [isLoading, setIsLoading] = useState(false);
   const [isTimeout, setIsTimeout] = useState(false);
+  const [currentStreamUrl, setCurrentStreamUrl] = useState<string | null>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   useKeepAwake();
 
@@ -24,6 +48,8 @@ export default function LivePlayer({ streamUrl, channelTitle, onPlaybackStatusUp
     }
 
     if (streamUrl) {
+      const filteredUrl = filterStreamUrl(streamUrl);
+      setCurrentStreamUrl(filteredUrl);
       setIsLoading(true);
       setIsTimeout(false);
       timeoutRef.current = setTimeout(() => {
@@ -31,6 +57,7 @@ export default function LivePlayer({ streamUrl, channelTitle, onPlaybackStatusUp
         setIsLoading(false);
       }, PLAYBACK_TIMEOUT);
     } else {
+      setCurrentStreamUrl(null);
       setIsLoading(false);
       setIsTimeout(false);
     }
@@ -42,7 +69,17 @@ export default function LivePlayer({ streamUrl, channelTitle, onPlaybackStatusUp
     };
   }, [streamUrl]);
 
-  const handlePlaybackStatusUpdate = (status: AVPlaybackStatus) => {
+  const filterStreamUrl = (url: string): string => {
+    const lowerUrl = url.toLowerCase();
+    const containsAd = AD_KEYWORDS.some(keyword => lowerUrl.includes(keyword.toLowerCase()));
+    if (containsAd) {
+      logger.debug(`Filtered ad URL: ${url.substring(0, 100)}...`);
+      return '';
+    }
+    return url;
+  };
+
+  const handlePlaybackStatusUpdate = useCallback((status: AVPlaybackStatus) => {
     if (status.isLoaded) {
       if (status.isPlaying) {
         if (timeoutRef.current) {
@@ -63,9 +100,24 @@ export default function LivePlayer({ streamUrl, channelTitle, onPlaybackStatusUp
       }
     }
     onPlaybackStatusUpdate(status);
-  };
+  }, [onPlaybackStatusUpdate]);
 
-  if (!streamUrl) {
+  const handleTVEvent = useCallback(
+    (event: HWEvent) => {
+      if (deviceType !== 'tv' || isChannelListVisible) return;
+      
+      if (event.eventType === 'left') {
+        onChannelChange?.('prev');
+      } else if (event.eventType === 'right') {
+        onChannelChange?.('next');
+      }
+    },
+    [deviceType, isChannelListVisible, onChannelChange]
+  );
+
+  useTVEventHandler(deviceType === 'tv' ? handleTVEvent : () => {});
+
+  if (!currentStreamUrl) {
     return (
       <View style={styles.container}>
         <Text style={styles.messageText}>按向下键选择频道</Text>
@@ -87,12 +139,13 @@ export default function LivePlayer({ streamUrl, channelTitle, onPlaybackStatusUp
         ref={video}
         style={styles.video}
         source={{
-          uri: streamUrl,
+          uri: currentStreamUrl,
         }}
         resizeMode={ResizeMode.CONTAIN}
         shouldPlay
         onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
         onError={(e) => {
+          logger.error(`Video playback error: ${JSON.stringify(e)}`);
           setIsTimeout(true);
           setIsLoading(false);
         }}

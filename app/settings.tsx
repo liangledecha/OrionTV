@@ -11,6 +11,7 @@ import { APIConfigSection } from "@/components/settings/APIConfigSection";
 import { LiveStreamSection } from "@/components/settings/LiveStreamSection";
 import { RemoteInputSection } from "@/components/settings/RemoteInputSection";
 import { UpdateSection } from "@/components/settings/UpdateSection";
+import { AdFilterSection } from "@/components/settings/AdFilterSection";
 import Toast from "react-native-toast-message";
 import { useResponsiveLayout } from "@/hooks/useResponsiveLayout";
 import { getCommonResponsiveStyles } from "@/utils/ResponsiveStyles";
@@ -144,6 +145,18 @@ export default function SettingsScreen() {
         />
       ),
       key: "livestream",
+    },
+    {
+      component: (
+        <AdFilterSection
+          onChanged={markAsChanged}
+          onFocus={() => {
+            setCurrentFocusIndex(4);
+            setCurrentSection("adfilter");
+          }}
+        />
+      ),
+      key: "adfilter",
     },
     Platform.OS === "android" && {
       component: <UpdateSection />,

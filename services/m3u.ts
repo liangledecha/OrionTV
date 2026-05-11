@@ -2,6 +2,16 @@ import Logger from '@/utils/Logger';
 
 const logger = Logger.withTag('M3U');
 
+const AD_KEYWORDS = [
+  'sponsor',
+  '/ad/',
+  '/ads/',
+  'advert',
+  'advertisement',
+  '/adjump',
+  'redtraffic',
+];
+
 export interface Channel {
   id: string;
   name: string;
@@ -18,7 +28,7 @@ export const parseM3U = (m3uText: string): Channel[] => {
   for (const line of lines) {
     const trimmedLine = line.trim();
     if (trimmedLine.startsWith('#EXTINF:')) {
-      currentChannelInfo = {}; // Start a new channel
+      currentChannelInfo = {};
       const commaIndex = trimmedLine.lastIndexOf(',');
       if (commaIndex !== -1) {
         currentChannelInfo.name = trimmedLine.substring(commaIndex + 1).trim();
@@ -36,9 +46,8 @@ export const parseM3U = (m3uText: string): Channel[] => {
       }
     } else if (currentChannelInfo && trimmedLine && !trimmedLine.startsWith('#') && trimmedLine.includes('://')) {
       currentChannelInfo.url = trimmedLine;
-      currentChannelInfo.id = currentChannelInfo.url; // Use URL as ID
+      currentChannelInfo.id = currentChannelInfo.url;
       
-      // Ensure all required fields are present, providing defaults if necessary
       const finalChannel: Channel = {
         id: currentChannelInfo.id,
         url: currentChannelInfo.url,
@@ -48,39 +57,78 @@ export const parseM3U = (m3uText: string): Channel[] => {
       };
       
       parsedChannels.push(finalChannel);
-      currentChannelInfo = null; // Reset for the next channel
+      currentChannelInfo = null;
     }
   }
   return parsedChannels;
 };
 
-export const fetchAndParseM3u = async (m3uUrl: string): Promise<Channel[]> => {
+export const fetchAndParseM3u = async (m3uUrl: string, filterAds = true): Promise<Channel[]> => {
   try {
     const response = await fetch(m3uUrl);
     if (!response.ok) {
       throw new Error(`Failed to fetch M3U: ${response.statusText}`);
     }
     const m3uText = await response.text();
+    
+    if (filterAds) {
+      const filteredContent = filterM3UContent(m3uText);
+      return parseM3U(filteredContent);
+    }
+    
     return parseM3U(m3uText);
   } catch (error) {
     logger.info("Error fetching or parsing M3U:", error);
-    return []; // Return empty array on error
+    return [];
   }
+};
+
+export const filterM3UContent = (m3uContent: string): string => {
+  if (!m3uContent) return '';
+
+  const lines = m3uContent.split('\n');
+  const filteredLines: string[] = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = lines[i];
+
+    if (line.includes('#EXT-X-DISCONTINUITY')) {
+      i++;
+      continue;
+    }
+
+    if (line.includes('#EXTINF:')) {
+      if (i + 1 < lines.length) {
+        const nextLine = lines[i + 1];
+        const containsAdKeyword = AD_KEYWORDS.some(keyword =>
+          nextLine.toLowerCase().includes(keyword.toLowerCase())
+        );
+
+        if (containsAdKeyword) {
+          logger.debug(`Filtered ad channel: ${nextLine.substring(0, 100)}...`);
+          i += 2;
+          continue;
+        }
+      }
+    }
+
+    filteredLines.push(line);
+    i++;
+  }
+
+  return filteredLines.join('\n');
+};
+
+export const isAdUrl = (url: string): boolean => {
+  if (!url) return false;
+  const lowerUrl = url.toLowerCase();
+  return AD_KEYWORDS.some(keyword => lowerUrl.includes(keyword.toLowerCase()));
 };
 
 export const getPlayableUrl = (originalUrl: string | null): string | null => {
   if (!originalUrl) {
     return null;
   }
-  // In React Native, we use the proxy for all http streams to avoid potential issues.
-  // if (originalUrl.toLowerCase().startsWith('http://')) {
-  //   // Use the baseURL from the existing api instance.
-  //   if (!api.baseURL) {
-  //       console.warn("API base URL is not set. Cannot create proxy URL.")
-  //       return originalUrl; // Fallback to original URL
-  //   }
-  //   return `${api.baseURL}/proxy?url=${encodeURIComponent(originalUrl)}`;
-  // }
-  // HTTPS streams can be played directly.
   return originalUrl;
 };

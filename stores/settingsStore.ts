@@ -11,6 +11,7 @@ interface SettingsState {
   apiBaseUrl: string;
   m3uUrl: string;
   remoteInputEnabled: boolean;
+  removeAds: boolean;
   videoSource: {
     enabledAll: boolean;
     sources: {
@@ -30,6 +31,7 @@ interface SettingsState {
   setUsername: (username: string) => void;
   setPassword: (password: string) => void;
   setRemoteInputEnabled: (enabled: boolean) => void;
+  setRemoveAds: (enabled: boolean) => void;
   saveSettings: () => Promise<void>;
   setVideoSource: (config: { enabledAll: boolean; sources: { [key: string]: boolean } }) => void;
   showModal: () => void;
@@ -40,6 +42,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   apiBaseUrl: "",
   m3uUrl: "",
   remoteInputEnabled: false,
+  removeAds: true,
   isModalVisible: false,
   serverConfig: null,
   serverConfigError: null,
@@ -56,6 +59,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       apiBaseUrl: settings.apiBaseUrl,
       m3uUrl: settings.m3uUrl,
       remoteInputEnabled: settings.remoteInputEnabled || false,
+      removeAds: settings.removeAds !== undefined ? settings.removeAds : true,
       username: settings.username || "",
       password: settings.password || "",
       videoSource: settings.videoSource || {
@@ -114,9 +118,10 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   setUsername: (username) => set({ username }),
   setPassword: (password) => set({ password }),
   setRemoteInputEnabled: (enabled) => set({ remoteInputEnabled: enabled }),
+  setRemoveAds: (enabled) => set({ removeAds: enabled }),
   setVideoSource: (config) => set({ videoSource: config }),
   saveSettings: async () => {
-    const { apiBaseUrl, m3uUrl, remoteInputEnabled, videoSource, username, password } = get();
+    const { apiBaseUrl, m3uUrl, remoteInputEnabled, removeAds, videoSource, username, password } = get();
     const currentSettings = await SettingsManager.get()
     const currentApiBaseUrl = currentSettings.apiBaseUrl;
     let processedApiBaseUrl = apiBaseUrl.trim();
@@ -142,6 +147,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       apiBaseUrl: processedApiBaseUrl,
       m3uUrl,
       remoteInputEnabled,
+      removeAds,
       videoSource,
       username,
       password,
