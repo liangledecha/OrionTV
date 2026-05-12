@@ -95,7 +95,8 @@ export default function SettingsScreen() {
         type: "success",
         text1: "保存成功",
       });
-    } catch {
+    } catch (error) {
+      logger.error("保存设置失败:", error);
       Alert.alert("错误", "保存设置失败");
     } finally {
       setIsLoading(false);

@@ -191,13 +191,22 @@ export default function LiveScreen() {
         case 'down':
           setIsChannelListVisible(true);
           setFocusedGroupIndex(0);
-          setFocusedChannelIndex(channels.findIndex(c => c.id === currentChannel?.id));
+          if (currentChannel) {
+            const currentIndex = channels.findIndex(c => c.id === currentChannel.id);
+            setFocusedChannelIndex(currentIndex >= 0 ? currentIndex : 0);
+          } else {
+            setFocusedChannelIndex(0);
+          }
           break;
         case 'left':
-          handleChannelChange('prev');
+          if (channels.length > 0) {
+            handleChannelChange('prev');
+          }
           break;
         case 'right':
-          handleChannelChange('next');
+          if (channels.length > 0) {
+            handleChannelChange('next');
+          }
           break;
         case 'info':
         case 'menu':
@@ -218,7 +227,9 @@ export default function LiveScreen() {
     handleChannelChange
   ]);
 
-  useTVEventHandler(isTV ? handleTVEvent : () => {});
+  useTVEventHandler(isTV ? handleTVEvent : () => {
+    // 空函数，避免条件函数导致的事件处理问题
+  });
 
   const renderGroupItem = useCallback(({ item, index }: { item: string; index: number }) => {
     const isSelected = selectedGroup === item;

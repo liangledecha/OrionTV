@@ -4,6 +4,9 @@ import { AVPlaybackStatus, Video } from "expo-av";
 import { RefObject } from "react";
 import { PlayRecord, PlayRecordManager, PlayerSettingsManager } from "@/services/storage";
 import useDetailStore, { episodesSelectorBySource } from "./detailStore";
+import { getAdEpisodeIndices, checkAdBatch, isAdSegment } from "@/services/adFilter";
+import { adFilterCache } from "@/services/adFilterCache";
+import { useSettingsStore } from "./settingsStore";
 import Logger from '@/utils/Logger';
 
 const logger = Logger.withTag('PlayerStore');
@@ -11,6 +14,15 @@ const logger = Logger.withTag('PlayerStore');
 interface Episode {
   url: string;
   title: string;
+  isAd?: boolean;
+  adReason?: string;
+}
+
+interface AdEpisodeInfo {
+  index: number;
+  url: string;
+  reason: string;
+  confidence: number;
 }
 
 interface PlayerState {
@@ -31,6 +43,9 @@ interface PlayerState {
   playbackRate: number;
   introEndTime?: number;
   outroStartTime?: number;
+  adEpisodeIndices: AdEpisodeInfo[];
+  currentEpisodeAdInfo: AdEpisodeInfo | null;
+  removeAds: boolean;
   setVideoRef: (ref: RefObject<Video>) => void;
   loadVideo: (options: {
     source: string;
@@ -55,9 +70,10 @@ interface PlayerState {
   reset: () => void;
   _seekTimeout?: NodeJS.Timeout;
   _isRecordSaveThrottled: boolean;
-  // Internal helper
   _savePlayRecord: (updates?: Partial<PlayRecord>, options?: { immediate?: boolean }) => void;
   handleVideoError: (errorType: 'ssl' | 'network' | 'other', failedUrl: string) => Promise<void>;
+  checkCurrentEpisodeAd: (url: string) => AdEpisodeInfo | null;
+  getAdEpisodeIndices: () => AdEpisodeInfo[];
 }
 
 const usePlayerStore = create<PlayerState>((set, get) => ({
@@ -80,12 +96,34 @@ const usePlayerStore = create<PlayerState>((set, get) => ({
   outroStartTime: undefined,
   _seekTimeout: undefined,
   _isRecordSaveThrottled: false,
+  adEpisodeIndices: [],
+  currentEpisodeAdInfo: null,
+  removeAds: true,
 
   setVideoRef: (ref) => set({ videoRef: ref }),
+
+  checkCurrentEpisodeAd: (url: string): AdEpisodeInfo | null => {
+    const { removeAds: adEnabled } = get();
+    if (!adEnabled || !url) return null;
+    
+    const adInfo = get().adEpisodeIndices.find(info => info.url === url);
+    if (adInfo) {
+      logger.info(`[AD_DETECT] Ad detected for URL: ${url.substring(0, 80)}... reason: ${adInfo.reason}`);
+      return adInfo;
+    }
+    return null;
+  },
+
+  getAdEpisodeIndices: (): AdEpisodeInfo[] => {
+    return get().adEpisodeIndices;
+  },
 
   loadVideo: async ({ source, id, episodeIndex, position, title }) => {
     const perfStart = performance.now();
     logger.info(`[PERF] PlayerStore.loadVideo START - source: ${source}, id: ${id}, title: ${title}`);
+    
+    const removeAds = useSettingsStore.getState().removeAds;
+    logger.info(`[AD_FILTER] removeAds setting: ${removeAds}`);
     
     let detail = useDetailStore.getState().detail;
     let episodes: string[] = [];
@@ -207,13 +245,67 @@ const usePlayerStore = create<PlayerState>((set, get) => ({
       const initialPositionFromRecord = playRecord?.play_time ? playRecord.play_time * 1000 : 0;
       const savedPlaybackRate = playerSettings?.playbackRate || 1.0;
       
-      const episodesMappingStart = performance.now();
-      const mappedEpisodes = episodes.map((ep, index) => ({
-        url: ep,
-        title: `第 ${index + 1} 集`,
-      }));
+      const adCheckStart = performance.now();
+      logger.info(`[AD_FILTER] Starting ad detection for ${episodes.length} episodes with removeAds=${removeAds}`);
+      
+      const mappedEpisodes: Episode[] = episodes.map((ep, index) => {
+        let isAd = false;
+        let adReason = '';
+        
+        if (removeAds) {
+          const adCheckResult = isAdSegment(ep);
+          if (adCheckResult.isAd) {
+            isAd = true;
+            adReason = adCheckResult.reason || 'unknown';
+            logger.info(`[AD_FILTER] Episode ${index} detected as ad: ${ep.substring(0, 60)}... (${adReason})`);
+          }
+        }
+        
+        return {
+          url: ep,
+          title: `第 ${index + 1} 集`,
+          isAd,
+          adReason,
+        };
+      });
+      
+      const adCheckEnd = performance.now();
+      const adEpisodeIndices: AdEpisodeInfo[] = mappedEpisodes
+        .map((ep, index) => ep.isAd ? {
+          index,
+          url: ep.url,
+          reason: ep.adReason || 'unknown',
+          confidence: 0.9,
+        } : null)
+        .filter((info): info is AdEpisodeInfo => info !== null);
+      
+      const adCount = adEpisodeIndices.length;
+      logger.info(`[AD_FILTER] Ad detection complete - ${adCount}/${episodes.length} episodes are ads, took ${(adCheckEnd - adCheckStart).toFixed(2)}ms`);
+      
+      if (adCount > 0) {
+        logger.info(`[AD_FILTER] Ad episode indices: ${adEpisodeIndices.map(e => e.index).join(', ')}`);
+        Toast.show({
+          type: "info",
+          text1: "广告检测",
+          text2: `检测到 ${adCount} 个广告片段`,
+          visibilityTime: 2000,
+        });
+      }
+      
+      const currentEpisode = mappedEpisodes[episodeIndex];
+      const currentEpisodeAdInfo = currentEpisode?.isAd ? {
+        index: episodeIndex,
+        url: currentEpisode.url,
+        reason: currentEpisode.adReason || 'unknown',
+        confidence: 0.9,
+      } : null;
+      
+      if (currentEpisodeAdInfo) {
+        logger.warn(`[AD_FILTER] Current episode ${episodeIndex} is an ad: ${currentEpisode.url.substring(0, 60)}...`);
+      }
+      
       const episodesMappingEnd = performance.now();
-      logger.info(`[PERF] Episodes mapping (${episodes.length} episodes) took ${(episodesMappingEnd - episodesMappingStart).toFixed(2)}ms`);
+      logger.info(`[PERF] Episodes mapping (${episodes.length} episodes) took ${(episodesMappingEnd - adCheckStart).toFixed(2)}ms`);
       
       set({
         isLoading: false,
@@ -223,6 +315,9 @@ const usePlayerStore = create<PlayerState>((set, get) => ({
         episodes: mappedEpisodes,
         introEndTime: playRecord?.introEndTime || playerSettings?.introEndTime,
         outroStartTime: playRecord?.outroStartTime || playerSettings?.outroStartTime,
+        adEpisodeIndices,
+        currentEpisodeAdInfo,
+        removeAds,
       });
       
       const perfEnd = performance.now();

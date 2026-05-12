@@ -4,6 +4,9 @@ import { api, ServerConfig } from "@/services/api";
 import { storageConfig } from "@/services/storageConfig";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Logger from "@/utils/Logger";
+import useAuthStore from "./authStore";
+import { adFilterCache } from "@/services/adFilterCache";
+import { clearFilterCache } from "@/services/adFilter";
 
 const logger = Logger.withTag('SettingsStore');
 
@@ -12,6 +15,7 @@ interface SettingsState {
   m3uUrl: string;
   remoteInputEnabled: boolean;
   removeAds: boolean;
+  customAdRules: string;
   videoSource: {
     enabledAll: boolean;
     sources: {
@@ -32,8 +36,9 @@ interface SettingsState {
   setPassword: (password: string) => void;
   setRemoteInputEnabled: (enabled: boolean) => void;
   setRemoveAds: (enabled: boolean) => void;
+  setCustomAdRules: (rules: string) => void;
   saveSettings: () => Promise<void>;
-  setVideoSource: (config: { enabledAll: boolean; sources: { [key: string]: boolean } }) => void;
+  setVideoSource: (config: { enabledAll: boolean; sources: { [key: string]: boolean } }) => void;  
   showModal: () => void;
   hideModal: () => void;
 }
@@ -43,6 +48,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   m3uUrl: "",
   remoteInputEnabled: false,
   removeAds: true,
+  customAdRules: "",
   isModalVisible: false,
   serverConfig: null,
   serverConfigError: null,
@@ -60,6 +66,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       m3uUrl: settings.m3uUrl,
       remoteInputEnabled: settings.remoteInputEnabled || false,
       removeAds: settings.removeAds !== undefined ? settings.removeAds : true,
+      customAdRules: settings.customAdRules || "",
       username: settings.username || "",
       password: settings.password || "",
       videoSource: settings.videoSource || {
@@ -118,10 +125,21 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   setUsername: (username) => set({ username }),
   setPassword: (password) => set({ password }),
   setRemoteInputEnabled: (enabled) => set({ remoteInputEnabled: enabled }),
-  setRemoveAds: (enabled) => set({ removeAds: enabled }),
+  setRemoveAds: (enabled) => {
+    logger.info(`[AD_FILTER] removeAds changed to: ${enabled}`);
+    adFilterCache.clear();
+    clearFilterCache();
+    set({ removeAds: enabled });
+  },
+  setCustomAdRules: (rules) => {
+    logger.info(`[AD_FILTER] customAdRules changed, clearing cache`);
+    adFilterCache.clear();
+    clearFilterCache();
+    set({ customAdRules: rules });
+  },
   setVideoSource: (config) => set({ videoSource: config }),
   saveSettings: async () => {
-    const { apiBaseUrl, m3uUrl, remoteInputEnabled, removeAds, videoSource, username, password } = get();
+    const { apiBaseUrl, m3uUrl, remoteInputEnabled, removeAds, customAdRules, videoSource, username, password } = get();
     const currentSettings = await SettingsManager.get()
     const currentApiBaseUrl = currentSettings.apiBaseUrl;
     let processedApiBaseUrl = apiBaseUrl.trim();
@@ -148,6 +166,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       m3uUrl,
       remoteInputEnabled,
       removeAds,
+      customAdRules,
       videoSource,
       username,
       password,
@@ -158,7 +177,24 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     api.setBaseUrl(processedApiBaseUrl);
     // Also update the URL in the state so the input field shows the processed URL
     set({ isModalVisible: false, apiBaseUrl: processedApiBaseUrl, serverConfigError: null });
-    await get().fetchServerConfig();
+    
+    try {
+      await get().fetchServerConfig();
+    } catch (configError) {
+      logger.warn("获取服务器配置失败，继续执行:", configError);
+    }
+
+    // 保存设置后立即触发登录状态检查，确保登录框能正确弹出
+    if (processedApiBaseUrl) {
+      const { username, password } = get();
+      // 如果有用户名和密码，执行完整登录检查
+      if (username && password) {
+        useAuthStore.getState().checkLoginStatus(processedApiBaseUrl);
+      } else {
+        // 没有凭据时，直接显示登录框让用户输入
+        useAuthStore.getState().showLoginModal();
+      }
+    }
   },
   showModal: () => set({ isModalVisible: true }),
   hideModal: () => set({ isModalVisible: false }),

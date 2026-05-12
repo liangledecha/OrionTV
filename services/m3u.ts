@@ -1,8 +1,10 @@
 import Logger from '@/utils/Logger';
+import { useSettingsStore } from '@/stores/settingsStore';
+import { isAdSegment, filterAdsFromM3U8 } from '@/services/adFilter';
 
 const logger = Logger.withTag('M3U');
 
-const AD_KEYWORDS = [
+const DEFAULT_AD_KEYWORDS = [
   'sponsor',
   '/ad/',
   '/ads/',
@@ -11,6 +13,30 @@ const AD_KEYWORDS = [
   '/adjump',
   'redtraffic',
 ];
+
+let cachedKeywords: string[] | null = null;
+let cacheTimestamp = 0;
+const CACHE_DURATION = 60000;
+
+const getAdKeywords = (): string[] => {
+  if (cachedKeywords && Date.now() - cacheTimestamp < CACHE_DURATION) {
+    return cachedKeywords;
+  }
+
+  const customRules = useSettingsStore.getState().customAdRules;
+  if (customRules && customRules.trim() && !customRules.includes('function')) {
+    const lines = customRules.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+    if (lines.length > 0) {
+      cachedKeywords = lines;
+      cacheTimestamp = Date.now();
+      logger.info(`Using custom ad keywords: ${lines.join(', ')}`);
+      return lines;
+    }
+  }
+  cachedKeywords = DEFAULT_AD_KEYWORDS;
+  cacheTimestamp = Date.now();
+  return cachedKeywords;
+};
 
 export interface Channel {
   id: string;
@@ -47,7 +73,7 @@ export const parseM3U = (m3uText: string): Channel[] => {
     } else if (currentChannelInfo && trimmedLine && !trimmedLine.startsWith('#') && trimmedLine.includes('://')) {
       currentChannelInfo.url = trimmedLine;
       currentChannelInfo.id = currentChannelInfo.url;
-      
+
       const finalChannel: Channel = {
         id: currentChannelInfo.id,
         url: currentChannelInfo.url,
@@ -55,7 +81,7 @@ export const parseM3U = (m3uText: string): Channel[] => {
         logo: currentChannelInfo.logo || '',
         group: currentChannelInfo.group || 'Default',
       };
-      
+
       parsedChannels.push(finalChannel);
       currentChannelInfo = null;
     }
@@ -70,12 +96,12 @@ export const fetchAndParseM3u = async (m3uUrl: string, filterAds = true): Promis
       throw new Error(`Failed to fetch M3U: ${response.statusText}`);
     }
     const m3uText = await response.text();
-    
+
     if (filterAds) {
       const filteredContent = filterM3UContent(m3uText);
       return parseM3U(filteredContent);
     }
-    
+
     return parseM3U(m3uText);
   } catch (error) {
     logger.info("Error fetching or parsing M3U:", error);
@@ -86,8 +112,10 @@ export const fetchAndParseM3u = async (m3uUrl: string, filterAds = true): Promis
 export const filterM3UContent = (m3uContent: string): string => {
   if (!m3uContent) return '';
 
+  const adKeywords = getAdKeywords();
   const lines = m3uContent.split('\n');
   const filteredLines: string[] = [];
+  let totalFiltered = 0;
   let i = 0;
 
   while (i < lines.length) {
@@ -101,12 +129,12 @@ export const filterM3UContent = (m3uContent: string): string => {
     if (line.includes('#EXTINF:')) {
       if (i + 1 < lines.length) {
         const nextLine = lines[i + 1];
-        const containsAdKeyword = AD_KEYWORDS.some(keyword =>
+        const containsAdKeyword = adKeywords.some(keyword =>
           nextLine.toLowerCase().includes(keyword.toLowerCase())
         );
 
         if (containsAdKeyword) {
-          logger.debug(`Filtered ad channel: ${nextLine.substring(0, 100)}...`);
+          totalFiltered++;
           i += 2;
           continue;
         }
@@ -117,13 +145,17 @@ export const filterM3UContent = (m3uContent: string): string => {
     i++;
   }
 
+  if (totalFiltered > 0) {
+    logger.info(`Filtered ${totalFiltered} ad channels from M3U`);
+  }
+
   return filteredLines.join('\n');
 };
 
 export const isAdUrl = (url: string): boolean => {
   if (!url) return false;
-  const lowerUrl = url.toLowerCase();
-  return AD_KEYWORDS.some(keyword => lowerUrl.includes(keyword.toLowerCase()));
+  const result = isAdSegment(url);
+  return result.isAd;
 };
 
 export const getPlayableUrl = (originalUrl: string | null): string | null => {
@@ -131,4 +163,10 @@ export const getPlayableUrl = (originalUrl: string | null): string | null => {
     return null;
   }
   return originalUrl;
+};
+
+export const clearM3UCache = (): void => {
+  cachedKeywords = null;
+  cacheTimestamp = 0;
+  logger.info('M3U cache cleared');
 };

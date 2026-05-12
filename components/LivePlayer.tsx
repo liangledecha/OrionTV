@@ -104,8 +104,10 @@ export default function LivePlayer({
 
   const handleTVEvent = useCallback(
     (event: HWEvent) => {
-      if (deviceType !== 'tv' || isChannelListVisible) return;
-      
+      if (deviceType !== 'tv') return;
+
+      if (isChannelListVisible) return;
+
       if (event.eventType === 'left') {
         onChannelChange?.('prev');
       } else if (event.eventType === 'right') {
@@ -115,7 +117,16 @@ export default function LivePlayer({
     [deviceType, isChannelListVisible, onChannelChange]
   );
 
-  useTVEventHandler(deviceType === 'tv' ? handleTVEvent : () => {});
+  const tvEventHandler = useCallback(
+    (event: HWEvent) => {
+      if (deviceType === 'tv' && !isChannelListVisible) {
+        handleTVEvent(event);
+      }
+    },
+    [deviceType, isChannelListVisible, handleTVEvent]
+  );
+
+  useTVEventHandler(tvEventHandler);
 
   if (!currentStreamUrl) {
     return (

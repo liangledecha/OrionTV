@@ -33,6 +33,7 @@ export interface AppSettings {
   apiBaseUrl: string;
   remoteInputEnabled: boolean;
   removeAds: boolean;
+  customAdRules: string;
   videoSource: {
     enabledAll: boolean;
     sources: {
@@ -321,6 +322,7 @@ export class SettingsManager {
       apiBaseUrl: "",
       remoteInputEnabled: true,
       removeAds: true,
+      customAdRules: "",
       videoSource: {
         enabledAll: true,
         sources: {},
